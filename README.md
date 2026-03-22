@@ -1,29 +1,25 @@
 # Earth Digital Twin — Personal Map Laboratory
 
-This app is designed as a **map laboratory**: one 3D renderer (Cesium) with modular, switchable behavior layers for search, overlays, measurement, notes, route experiments, and replay-style workflows.
+A Cesium-based 3D map prototype focused on exploration, personal intelligence, and privacy-first behavior layers.
 
-## Architecture concept
+## What this build now includes
 
-- One renderer, many behaviors.
-- No proprietary map-layer mixing from restricted ecosystems.
-- Feature modules guarded by `FEATURE_FLAGS` in `app.js` for easy experimentation.
+- **Exploration & Discovery modules**
+  - Street View-style immersive ground mode (mock 360 pano + historical year slider).
+  - Saved places in custom lists with notes/tags and reorder scaffolding.
+  - Indoor map demo with floor switching and room/path highlighting.
+  - Popular times / busyness visual graph with realistic mock patterns.
 
-## Current feature modules
+- **Personalization & Privacy modules**
+  - Local-first personal timeline with pause/delete/export controls.
+  - Session-based incognito mode respected by timeline/search logging.
+  - Trusted-contact location sharing mock flow with duration and stop-sharing controls.
+  - Local guides contribution system with moderation states and reputation badges.
 
-- Command bar search (address/city/coordinates) + recent searches.
-- Saved viewpoints + city presets (Miami/NYC/Tokyo) + tour mode.
-- Camera controls: orbital reset, compass reset, auto-rotate.
-- Global 3D terrain (Cesium World Terrain when available, with graceful fallback).
-- Global 3D buildings via OSM Buildings (auto-disables if unavailable).
-- Realism controls: day/night, sun slider, clouds, fog, atmosphere, terrain exaggeration.
-- Interaction tools: lat/lon/elevation info card, distance measure, area measure, pin notes.
-- Personal overlays (work/food/gym/danger) with per-layer toggles.
-- Route Lab panel (experimental compare-3-routes UX placeholder).
-- Data layers: USGS earthquakes toggle, GeoJSON/KML/GPX import.
-- Keyboard shortcuts: `F` search, `R` auto-rotate, `M` measure, `A` annotate.
-- Event-scene design mode: waypoint markers, shoreline grandstands, staging zones, route-side custom structures, and activation areas.
-- Sponsor overlays as native environmental placements (ground-integrated halos + labels) to maximize visibility without billboard clutter.
-- Mood slider for atmospheric color/tone shaping suitable for premium event visualization.
+- **Architecture and extensibility**
+  - Feature flags in `app.js` for module-level experimentation.
+  - Dedicated mock data models in `mockData.js`.
+  - Service/data adapter scaffold in `services.js` for easy swap to real APIs.
 
 ## Run
 
@@ -35,18 +31,8 @@ Open:
 
 - <http://localhost:8080>
 
-## Data sources
-
-- Esri World Imagery: https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer
-- OpenStreetMap tiles + geocoder: https://tile.openstreetmap.org/ + https://nominatim.openstreetmap.org/
-- NASA GIBS cloud + Black Marble: https://gibs.earthdata.nasa.gov/
-- USGS earthquakes: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson
-
 ## Notes
 
-- This is for personal experimentation and uses public/free endpoints only.
-- If OSM 3D buildings are unavailable, the buildings toggle auto-disables.
-
-- Cesium for Unreal + Google Photorealistic 3D Tiles pipeline is not part of this web repo; this implementation provides the CesiumJS web equivalent for event-scene prototyping.
-
-See PRODUCT_PLAN.md for a full mobility OS roadmap and phased architecture.
+- This is a serious prototype scaffold using mock data where proprietary/live datasets are unavailable.
+- `services.js` marks adapter boundaries for future real integrations (routing, street imagery, indoor, sharing, community).
+- See `PRODUCT_PLAN.md` for phased product roadmap and infrastructure strategy.

@@ -1,18 +1,24 @@
-const FEATURE_FLAGS = {
-  routeLab: true,
-  overlays: true,
-  quakesLayer: true,
-  geoImport: true,
-  tourMode: true,
-  annotations: true,
-  measurements: true,
-  eventDesign: true
-};
+import {
+  STREET_HISTORY_STATES,
+  DEFAULT_PLACE_LISTS,
+  MOCK_INDOOR_LOCATIONS,
+  MOCK_POPULAR_TIMES,
+  MOCK_CONTACTS,
+  CONTRIBUTION_BADGES
+} from './mockData.js';
+import { adapters, listService, timelineService, sharingService, contributionService } from './services.js';
 
-const ORBITAL_DESTINATION = Cesium.Cartesian3.fromDegrees(-30.0, 25.0, 25_000_000);
-const EASTERN_TIMEZONE = 'America/New_York';
-const SAVED_VIEWS_KEY = 'map-lab-saved-views-v1';
-const RECENT_SEARCHES_KEY = 'map-lab-recent-searches-v1';
+const FEATURE_FLAGS = {
+  streetMode: true,
+  savedLists: true,
+  indoorMaps: true,
+  popularTimes: true,
+  timeline: true,
+  incognito: true,
+  locationSharing: true,
+  communityGuides: true,
+  mockDataMode: true
+};
 
 const viewer = new Cesium.Viewer('cesiumContainer', {
   animation: false,
@@ -33,631 +39,444 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
   terrainProvider: new Cesium.EllipsoidTerrainProvider()
 });
 
-async function enableGlobalTerrain() {
-  try {
-    const terrain = await Cesium.createWorldTerrainAsync({ requestVertexNormals: true, requestWaterMask: true });
-    viewer.scene.terrainProvider = terrain;
-    viewer.scene.globe.depthTestAgainstTerrain = true;
-  } catch {
-    // Fallback remains ellipsoid terrain if world terrain is unavailable.
-  }
-}
-
-
-const scene = viewer.scene;
-const globe = scene.globe;
-const imageryLayers = globe.imageryLayers;
-
-globe.enableLighting = true;
-scene.skyAtmosphere.show = true;
-scene.fog.enabled = true;
-scene.screenSpaceCameraController.minimumZoomDistance = 20;
-scene.screenSpaceCameraController.maximumZoomDistance = 40_000_000;
-viewer.clock.multiplier = 0;
-
-const labelsLayer = imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider({ url: 'https://tile.openstreetmap.org/' }));
-labelsLayer.alpha = 0.45;
-const cloudLayer = imageryLayers.addImageryProvider(
-  new Cesium.UrlTemplateImageryProvider({
-    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_Cloud_Mask/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png',
-    tileMatrixSetID: 'GoogleMapsCompatible_Level9',
-    tileMatrixLabels: ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
-    maximumLevel: 8
-  })
-);
-cloudLayer.alpha = 0.26;
-const nightLayer = imageryLayers.addImageryProvider(
-  new Cesium.WebMapTileServiceImageryProvider({
-    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi',
-    layer: 'VIIRS_Black_Marble',
-    style: 'default',
-    tileMatrixSetID: 'GoogleMapsCompatible_Level8',
-    format: 'image/jpeg',
-    maximumLevel: 8
-  })
-);
-nightLayer.alpha = 0;
+const state = {
+  selectedCartesian: null,
+  incognito: sessionStorage.getItem('map_lab_incognito') === '1',
+  streetHeading: 0,
+  savedLists: listService.get(DEFAULT_PLACE_LISTS),
+  contributions: contributionService.get(),
+  panoramaYearIndex: 0
+};
 
 const dom = {
   searchInput: document.getElementById('searchInput'),
   searchBtn: document.getElementById('searchBtn'),
   cityButtons: document.querySelectorAll('[data-city-lon][data-city-lat]'),
-  goHomeBtn: document.getElementById('goHomeBtn'),
-  goWorkBtn: document.getElementById('goWorkBtn'),
-  nightToggle: document.getElementById('nightToggle'),
-  labelsToggle: document.getElementById('labelsToggle'),
-  cloudsToggle: document.getElementById('cloudsToggle'),
-  fogToggle: document.getElementById('fogToggle'),
-  atmosphereToggle: document.getElementById('atmosphereToggle'),
-  buildingsToggle: document.getElementById('buildingsToggle'),
-  quakesToggle: document.getElementById('quakesToggle'),
-  sunSlider: document.getElementById('sunSlider'),
-  terrainExaggeration: document.getElementById('terrainExaggeration'),
-  nowBtn: document.getElementById('nowBtn'),
-  orbitalViewBtn: document.getElementById('orbitalViewBtn'),
-  resetNorthBtn: document.getElementById('resetNorthBtn'),
-  autoRotateBtn: document.getElementById('autoRotateBtn'),
-  measureBtn: document.getElementById('measureBtn'),
-  measureAreaBtn: document.getElementById('measureAreaBtn'),
-  clearMeasureBtn: document.getElementById('clearMeasureBtn'),
-  annotateBtn: document.getElementById('annotateBtn'),
-  eventModeBtn: document.getElementById('eventModeBtn'),
-  sponsorOverlayBtn: document.getElementById('sponsorOverlayBtn'),
-  moodSlider: document.getElementById('moodSlider'),
-  saveViewBtn: document.getElementById('saveViewBtn'),
-  savedViews: document.getElementById('savedViews'),
-  loadViewBtn: document.getElementById('loadViewBtn'),
-  deleteViewBtn: document.getElementById('deleteViewBtn'),
-  tourBtn: document.getElementById('tourBtn'),
-  importFile: document.getElementById('importFile'),
-  infoText: document.getElementById('infoText'),
-  easternClock: document.getElementById('easternClock'),
   panelToggle: document.getElementById('panelToggle'),
   labPanel: document.getElementById('labPanel'),
-  routeFrom: document.getElementById('routeFrom'),
-  routeTo: document.getElementById('routeTo'),
-  routeCompareBtn: document.getElementById('routeCompareBtn'),
-  routeResults: document.getElementById('routeResults'),
-  recentPlaces: document.getElementById('recentPlaces'),
-  overlayToggles: document.querySelectorAll('.overlayToggle')
+  infoText: document.getElementById('infoText'),
+  incognitoToggle: document.getElementById('incognitoToggle'),
+  privacyStatus: document.getElementById('privacyStatus'),
+
+  streetModeBtn: document.getElementById('streetModeBtn'),
+  enterStreetViewBtn: document.getElementById('enterStreetViewBtn'),
+  streetOverlay: document.getElementById('streetOverlay'),
+  streetExitBtn: document.getElementById('streetExitBtn'),
+  streetPanorama: document.getElementById('streetPanorama'),
+  panLeftBtn: document.getElementById('panLeftBtn'),
+  panRightBtn: document.getElementById('panRightBtn'),
+  streetYearSlider: document.getElementById('streetYearSlider'),
+  streetYearLabel: document.getElementById('streetYearLabel'),
+
+  saveCurrentPlaceBtn: document.getElementById('saveCurrentPlaceBtn'),
+  newListName: document.getElementById('newListName'),
+  createListBtn: document.getElementById('createListBtn'),
+  savedLists: document.getElementById('savedLists'),
+
+  indoorLocationSelect: document.getElementById('indoorLocationSelect'),
+  indoorFloorSelect: document.getElementById('indoorFloorSelect'),
+  indoorSearch: document.getElementById('indoorSearch'),
+  indoorFindBtn: document.getElementById('indoorFindBtn'),
+  indoorResult: document.getElementById('indoorResult'),
+
+  popularTimesType: document.getElementById('popularTimesType'),
+  renderPopularTimesBtn: document.getElementById('renderPopularTimesBtn'),
+  popularTimesGraph: document.getElementById('popularTimesGraph'),
+
+  timelineBtn: document.getElementById('timelineBtn'),
+  pauseTimelineBtn: document.getElementById('pauseTimelineBtn'),
+  deleteTimelineBtn: document.getElementById('deleteTimelineBtn'),
+  exportTimelineBtn: document.getElementById('exportTimelineBtn'),
+  timelineList: document.getElementById('timelineList'),
+
+  sharingBtn: document.getElementById('sharingBtn'),
+  shareContactSelect: document.getElementById('shareContactSelect'),
+  shareDurationSelect: document.getElementById('shareDurationSelect'),
+  startShareBtn: document.getElementById('startShareBtn'),
+  shareSessions: document.getElementById('shareSessions'),
+
+  guidesBtn: document.getElementById('guidesBtn'),
+  contribType: document.getElementById('contribType'),
+  contribText: document.getElementById('contribText'),
+  submitContribBtn: document.getElementById('submitContribBtn'),
+  contribScore: document.getElementById('contribScore'),
+  contribList: document.getElementById('contribList')
 };
 
-const state = {
-  autoRotate: false,
-  activeTool: null,
-  clickPoints: [],
-  areaPoints: [],
-  scratchEntities: [],
-  overlayEntities: [],
-  buildingsTileset: null,
-  quakesDataSource: null,
-  tourTimer: null,
-  eventEntities: [],
-  sponsorEntities: []
-};
-
-const clickHandler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
-
-function initBuildings() {
-  Cesium.createOsmBuildingsAsync()
-    .then((tileset) => {
-      state.buildingsTileset = tileset;
-      scene.primitives.add(tileset);
-    })
-    .catch(() => {
-      dom.buildingsToggle.disabled = true;
-      dom.buildingsToggle.checked = false;
-    });
+function setPrivacyStatus() {
+  dom.incognitoToggle.checked = state.incognito;
+  dom.privacyStatus.textContent = state.incognito
+    ? 'Incognito active: searches and movement are session-private.'
+    : 'Private history enabled (local-first timeline).';
 }
 
-function updateEasternClock() {
-  dom.easternClock.textContent = new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: EASTERN_TIMEZONE,
-    timeZoneName: 'short'
-  }).format(new Date());
+function maybeLogTimeline(event) {
+  if (!FEATURE_FLAGS.timeline || state.incognito) return;
+  timelineService.add(event);
+  renderTimeline();
 }
 
-function addRecentPlace(text) {
-  const recent = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
-  const deduped = [text, ...recent.filter((item) => item !== text)].slice(0, 8);
-  localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(deduped));
-  renderRecentPlaces();
+function getPickCartesian(position) {
+  const ray = viewer.camera.getPickRay(position);
+  return viewer.scene.globe.pick(ray, viewer.scene) || viewer.camera.pickEllipsoid(position);
 }
 
-function renderRecentPlaces() {
-  const recent = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
-  dom.recentPlaces.innerHTML = '';
-  recent.forEach((entry) => {
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
-    btn.textContent = entry;
-    btn.addEventListener('click', () => flyToAddress(entry));
-    li.append(btn);
-    dom.recentPlaces.append(li);
-  });
-}
-
-function setInfoCard(cartesian) {
+function updateInfoCard(cartesian) {
   const c = Cesium.Cartographic.fromCartesian(cartesian);
-  const lat = Cesium.Math.toDegrees(c.latitude);
-  const lon = Cesium.Math.toDegrees(c.longitude);
-  const elev = globe.getHeight(c) ?? 0;
-  dom.infoText.textContent = `Lat ${lat.toFixed(5)}, Lon ${lon.toFixed(5)}, Elev ${elev.toFixed(1)}m`;
+  const lat = Cesium.Math.toDegrees(c.latitude).toFixed(5);
+  const lon = Cesium.Math.toDegrees(c.longitude).toFixed(5);
+  const elev = (viewer.scene.globe.getHeight(c) ?? 0).toFixed(1);
+  dom.infoText.textContent = `Lat ${lat}, Lon ${lon}, Elev ${elev}m`;
 }
 
-function parseCoords(text) {
-  const parts = text.split(',').map((v) => Number(v.trim()));
-  if (parts.length !== 2 || parts.some(Number.isNaN)) return null;
-  return { lat: parts[0], lon: parts[1] };
-}
+async function flyToQuery(query) {
+  const raw = query.trim();
+  if (!raw) return;
 
-async function flyToAddress(text) {
-  const query = text.trim();
-  if (!query) return;
-  addRecentPlace(query);
-
-  const coords = parseCoords(query);
-  if (coords) {
-    viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(coords.lon, coords.lat, 4500), duration: 2 });
+  const parts = raw.split(',').map((x) => Number(x.trim()));
+  if (parts.length === 2 && parts.every((x) => !Number.isNaN(x))) {
+    viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(parts[1], parts[0], 4500), duration: 1.8 });
+    maybeLogTimeline({ type: 'search_coords', value: raw, at: new Date().toISOString(), mode: 'map' });
     return;
   }
 
   const endpoint = new URL('https://nominatim.openstreetmap.org/search');
-  endpoint.searchParams.set('q', query);
+  endpoint.searchParams.set('q', raw);
   endpoint.searchParams.set('format', 'jsonv2');
   endpoint.searchParams.set('limit', '1');
   const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
   const [result] = await response.json();
-  if (!result) throw new Error('No result found.');
-  viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(Number(result.lon), Number(result.lat), 4500), duration: 2 });
+  if (!result) throw new Error('No search result found.');
+
+  viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(Number(result.lon), Number(result.lat), 4500), duration: 1.8 });
+  maybeLogTimeline({ type: 'search_place', value: raw, at: new Date().toISOString(), mode: 'map' });
 }
 
-function getPick(position) {
-  const ray = viewer.camera.getPickRay(position);
-  return scene.globe.pick(ray, scene) || viewer.camera.pickEllipsoid(position, globe.ellipsoid);
+function renderStreetMode() {
+  const stateDef = STREET_HISTORY_STATES[state.panoramaYearIndex];
+  dom.streetYearLabel.textContent = `Year: ${stateDef.year} (${stateDef.label})`;
+  dom.streetPanorama.style.background = `conic-gradient(from ${state.streetHeading}deg, #1d2f4d, #27486f, #396ea1, #1d2f4d)`;
+  dom.streetPanorama.textContent = `Mock 360° pano · ${stateDef.year}`;
 }
 
-function clearScratch() {
-  state.scratchEntities.forEach((e) => viewer.entities.remove(e));
-  state.scratchEntities = [];
-  state.clickPoints = [];
-  state.areaPoints = [];
-}
-
-function setTool(tool) {
-  state.activeTool = state.activeTool === tool ? null : tool;
-  dom.measureBtn.classList.toggle('active', state.activeTool === 'measure');
-  dom.measureAreaBtn.classList.toggle('active', state.activeTool === 'area');
-  dom.annotateBtn.classList.toggle('active', state.activeTool === 'annotate');
-}
-
-function polygonAreaKm2(points) {
-  const carto = points.map((p) => Cesium.Cartographic.fromCartesian(p));
-  const deg = carto.map((x) => [Cesium.Math.toDegrees(x.longitude), Cesium.Math.toDegrees(x.latitude)]);
-  let area = 0;
-  for (let i = 0; i < deg.length; i += 1) {
-    const [x1, y1] = deg[i];
-    const [x2, y2] = deg[(i + 1) % deg.length];
-    area += x1 * y2 - x2 * y1;
-  }
-  return Math.abs(area / 2) * 111 * 111;
-}
-
-function refreshSavedViews() {
-  const defaults = [
-    { name: 'Miami', lon: -80.1918, lat: 25.7617 },
-    { name: 'NYC', lon: -74.006, lat: 40.7128 },
-    { name: 'Tokyo', lon: 139.6917, lat: 35.6895 }
-  ];
-  const custom = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '[]');
-  const merged = [...defaults, ...custom];
-  dom.savedViews.innerHTML = '';
-  merged.forEach((v, idx) => {
-    const option = document.createElement('option');
-    option.value = String(idx);
-    option.textContent = v.name;
-    dom.savedViews.append(option);
-  });
-  dom.savedViews.dataset.views = JSON.stringify(merged);
-}
-
-function saveView() {
-  const name = prompt('Name viewpoint');
-  if (!name) return;
-  const p = viewer.camera.positionCartographic;
-  const saved = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '[]');
-  saved.push({ name, lon: Cesium.Math.toDegrees(p.longitude), lat: Cesium.Math.toDegrees(p.latitude), height: p.height, heading: viewer.camera.heading, pitch: viewer.camera.pitch, roll: viewer.camera.roll });
-  localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(saved));
-  refreshSavedViews();
-}
-
-function loadView() {
-  const views = JSON.parse(dom.savedViews.dataset.views || '[]');
-  const view = views[Number(dom.savedViews.value)];
-  if (!view) return;
-  viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(view.lon, view.lat, view.height || 7000),
-    orientation: { heading: view.heading || 0, pitch: view.pitch || -0.8, roll: view.roll || 0 },
-    duration: 1.8
-  });
-}
-
-function deleteView() {
-  const selected = dom.savedViews.options[dom.savedViews.selectedIndex]?.textContent;
-  const saved = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '[]').filter((v) => v.name !== selected);
-  localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(saved));
-  refreshSavedViews();
-}
-
-async function toggleQuakes(on) {
-  if (!FEATURE_FLAGS.quakesLayer) return;
-  if (!on) {
-    if (state.quakesDataSource) viewer.dataSources.remove(state.quakesDataSource);
-    state.quakesDataSource = null;
+function enterStreetMode() {
+  if (!FEATURE_FLAGS.streetMode) return;
+  if (!state.selectedCartesian) {
+    alert('Select a map point first.');
     return;
   }
-  state.quakesDataSource = await Cesium.GeoJsonDataSource.load('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson', {
-    markerColor: Cesium.Color.RED,
-    markerSize: 7
-  });
-  viewer.dataSources.add(state.quakesDataSource);
+  dom.streetOverlay.classList.remove('hidden');
+  renderStreetMode();
+  maybeLogTimeline({ type: 'street_mode_enter', at: new Date().toISOString(), mode: 'walk' });
 }
 
-function initOverlays() {
-  const presets = [
-    { type: 'work', label: 'Office', lon: -80.197, lat: 25.774, color: Cesium.Color.DODGERBLUE },
-    { type: 'food', label: 'Favorite Cafe', lon: -80.191, lat: 25.763, color: Cesium.Color.GOLD },
-    { type: 'gym', label: 'Gym', lon: -80.205, lat: 25.768, color: Cesium.Color.LIME },
-    { type: 'danger', label: 'Flood-prone', lon: -80.187, lat: 25.758, color: Cesium.Color.RED }
-  ];
-
-  presets.forEach((item) => {
-    state.overlayEntities.push(
-      viewer.entities.add({
-        position: Cesium.Cartesian3.fromDegrees(item.lon, item.lat),
-        point: { pixelSize: 9, color: item.color },
-        label: { text: item.label, showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.6), pixelOffset: new Cesium.Cartesian2(0, -14) },
-        properties: { overlayType: item.type }
-      })
-    );
-  });
+function exitStreetMode() {
+  dom.streetOverlay.classList.add('hidden');
 }
 
-function filterOverlay(type, isVisible) {
-  state.overlayEntities
-    .filter((entity) => entity.properties?.overlayType?.getValue?.() === type)
-    .forEach((entity) => {
-      entity.show = isVisible;
-    });
+function persistLists() {
+  listService.save(state.savedLists);
 }
 
-function compareRoutes() {
-  if (!FEATURE_FLAGS.routeLab) return;
-  const from = dom.routeFrom.value.trim();
-  const to = dom.routeTo.value.trim();
-  if (!from || !to) return;
-
-  const mockRoutes = [
-    { name: 'Fastest', eta: '27 min', distance: '12.1 mi', annoyance: 6 },
-    { name: 'Low stress', eta: '33 min', distance: '13.7 mi', annoyance: 3 },
-    { name: 'No tolls', eta: '35 min', distance: '14.9 mi', annoyance: 4 }
-  ];
-
-  dom.routeResults.innerHTML = '';
-  mockRoutes.forEach((r) => {
+function renderSavedLists() {
+  dom.savedLists.innerHTML = '';
+  state.savedLists.forEach((list, listIndex) => {
     const li = document.createElement('li');
-    li.textContent = `${r.name}: ${r.eta}, ${r.distance}, annoyance ${r.annoyance}/10`;
-    dom.routeResults.append(li);
+    const header = document.createElement('div');
+    header.className = 'route-row';
+
+    const title = document.createElement('strong');
+    title.textContent = list.name;
+
+    const renameBtn = document.createElement('button');
+    renameBtn.textContent = 'Rename';
+    renameBtn.addEventListener('click', () => {
+      const name = prompt('Rename list:', list.name);
+      if (!name) return;
+      state.savedLists[listIndex].name = name;
+      persistLists();
+      renderSavedLists();
+    });
+
+    header.append(title, renameBtn);
+    li.append(header);
+
+    const ul = document.createElement('ul');
+    list.items.forEach((item, itemIndex) => {
+      const row = document.createElement('li');
+      row.textContent = `${item.name} (${item.tag || 'tagless'}) — ${item.note || 'no note'}`;
+
+      const upBtn = document.createElement('button');
+      upBtn.textContent = '↑';
+      upBtn.addEventListener('click', () => {
+        if (itemIndex === 0) return;
+        [list.items[itemIndex - 1], list.items[itemIndex]] = [list.items[itemIndex], list.items[itemIndex - 1]];
+        persistLists();
+        renderSavedLists();
+      });
+
+      row.append(' ', upBtn);
+      ul.append(row);
+    });
+    li.append(ul);
+    dom.savedLists.append(li);
   });
 }
 
-function startTour() {
-  if (!FEATURE_FLAGS.tourMode) return;
-  const stops = [
-    Cesium.Cartesian3.fromDegrees(-80.1918, 25.7617, 9000),
-    Cesium.Cartesian3.fromDegrees(-74.006, 40.7128, 9000),
-    Cesium.Cartesian3.fromDegrees(139.6917, 35.6895, 9000)
-  ];
-  let idx = 0;
-  clearInterval(state.tourTimer);
-  state.tourTimer = setInterval(() => {
-    viewer.camera.flyTo({ destination: stops[idx % stops.length], duration: 4 });
-    idx += 1;
-  }, 4500);
-}
+function saveCurrentPlaceToList() {
+  if (!FEATURE_FLAGS.savedLists) return;
+  if (!state.selectedCartesian) {
+    alert('Select a place on the map first.');
+    return;
+  }
 
-function stopTour() {
-  clearInterval(state.tourTimer);
-}
+  const listName = prompt('Save to which list? (type list name)', state.savedLists[0]?.name || 'Favorite Brunch Spots');
+  if (!listName) return;
 
+  const list = state.savedLists.find((x) => x.name === listName) || state.savedLists[0];
+  const carto = Cesium.Cartographic.fromCartesian(state.selectedCartesian);
+  const name = prompt('Place title:', 'Pinned place');
+  const note = prompt('Note:', '');
+  const tag = prompt('Tag:', 'general');
 
-function setMood(value) {
-  const normalized = Number(value) / 100;
-  scene.skyAtmosphere.hueShift = -0.05 + normalized * 0.12;
-  scene.skyAtmosphere.saturationShift = 0.1 + normalized * 0.25;
-  scene.skyAtmosphere.brightnessShift = 0.05 + normalized * 0.2;
-  scene.requestRender();
-}
-
-function createEventEntities() {
-  if (!FEATURE_FLAGS.eventDesign || state.eventEntities.length > 0) return;
-
-  const route = [
-    Cesium.Cartesian3.fromDegrees(-80.199, 25.772, 3),
-    Cesium.Cartesian3.fromDegrees(-80.194, 25.769, 3),
-    Cesium.Cartesian3.fromDegrees(-80.189, 25.765, 3),
-    Cesium.Cartesian3.fromDegrees(-80.183, 25.761, 3)
-  ];
-
-  state.eventEntities.push(
-    viewer.entities.add({
-      polyline: { positions: route, width: 8, material: Cesium.Color.CYAN.withAlpha(0.85) },
-      name: 'Event route spine'
-    })
-  );
-
-  route.forEach((point, idx) => {
-    state.eventEntities.push(
-      viewer.entities.add({
-        position: point,
-        point: { pixelSize: 11, color: Cesium.Color.WHITE, outlineColor: Cesium.Color.CYAN, outlineWidth: 2 },
-        label: { text: `Waypoint ${idx + 1}`, showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55), pixelOffset: new Cesium.Cartesian2(0, -18) }
-      })
-    );
+  list.items.push({
+    id: `p_${Date.now()}`,
+    name: name || 'Pinned place',
+    note,
+    tag,
+    lat: Cesium.Math.toDegrees(carto.latitude),
+    lon: Cesium.Math.toDegrees(carto.longitude),
+    sharedWith: ['mock_friend_a']
   });
 
-  // Shoreline grandstands (contextual, not billboard clutter)
-  state.eventEntities.push(
-    viewer.entities.add({
-      position: Cesium.Cartesian3.fromDegrees(-80.1912, 25.7678, 25),
-      box: { dimensions: new Cesium.Cartesian3(120, 42, 20), material: Cesium.Color.SLATEGRAY.withAlpha(0.78) },
-      label: { text: 'Shoreline Grandstand A', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55), pixelOffset: new Cesium.Cartesian2(0, -30) }
-    })
-  );
-
-  state.eventEntities.push(
-    viewer.entities.add({
-      position: Cesium.Cartesian3.fromDegrees(-80.1869, 25.7638, 22),
-      box: { dimensions: new Cesium.Cartesian3(100, 36, 16), material: Cesium.Color.SLATEGRAY.withAlpha(0.76) },
-      label: { text: 'Shoreline Grandstand B', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55), pixelOffset: new Cesium.Cartesian2(0, -30) }
-    })
-  );
-
-  // Staging + activation areas
-  state.eventEntities.push(
-    viewer.entities.add({
-      polygon: {
-        hierarchy: Cesium.Cartesian3.fromDegreesArray([-80.198, 25.770, -80.196, 25.770, -80.196, 25.768, -80.198, 25.768]),
-        material: Cesium.Color.ORANGE.withAlpha(0.28)
-      },
-      label: { text: 'Staging Zone', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55) }
-    })
-  );
-
-  state.eventEntities.push(
-    viewer.entities.add({
-      polygon: {
-        hierarchy: Cesium.Cartesian3.fromDegreesArray([-80.188, 25.7648, -80.1865, 25.7648, -80.1865, 25.7634, -80.188, 25.7634]),
-        material: Cesium.Color.MEDIUMSPRINGGREEN.withAlpha(0.24)
-      },
-      label: { text: 'Activation Area', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55) }
-    })
-  );
-
-  // Route-side custom structures
-  state.eventEntities.push(
-    viewer.entities.add({
-      position: Cesium.Cartesian3.fromDegrees(-80.1934, 25.7685, 18),
-      box: { dimensions: new Cesium.Cartesian3(40, 20, 24), material: Cesium.Color.DARKCYAN.withAlpha(0.68) },
-      label: { text: 'Route Ops Tower', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55), pixelOffset: new Cesium.Cartesian2(0, -20) }
-    })
-  );
+  persistLists();
+  renderSavedLists();
+  maybeLogTimeline({ type: 'save_place', value: name || 'Pinned place', at: new Date().toISOString(), mode: 'map' });
 }
 
-function setEventMode(enabled) {
-  createEventEntities();
-  state.eventEntities.forEach((entity) => {
-    entity.show = enabled;
+function initIndoorDemo() {
+  MOCK_INDOOR_LOCATIONS.forEach((location) => {
+    const option = document.createElement('option');
+    option.value = location.id;
+    option.textContent = location.name;
+    dom.indoorLocationSelect.append(option);
   });
-  dom.eventModeBtn.classList.toggle('active', enabled);
-  scene.requestRender();
+  refreshIndoorFloors();
 }
 
-function createSponsorEntities() {
-  if (state.sponsorEntities.length > 0) return;
-
-  const sponsors = [
-    { name: 'Title Partner', lon: -80.1918, lat: 25.7664, color: Cesium.Color.GOLD },
-    { name: 'Energy Partner', lon: -80.1874, lat: 25.7639, color: Cesium.Color.LIGHTSKYBLUE },
-    { name: 'Mobility Partner', lon: -80.1952, lat: 25.7696, color: Cesium.Color.LIME }
-  ];
-
-  sponsors.forEach((sponsor) => {
-    state.sponsorEntities.push(
-      viewer.entities.add({
-        position: Cesium.Cartesian3.fromDegrees(sponsor.lon, sponsor.lat, 6),
-        ellipse: {
-          semiMinorAxis: 28,
-          semiMajorAxis: 28,
-          height: 1,
-          material: sponsor.color.withAlpha(0.18),
-          outline: true,
-          outlineColor: sponsor.color.withAlpha(0.9)
-        },
-        label: {
-          text: sponsor.name,
-          showBackground: true,
-          backgroundColor: Cesium.Color.BLACK.withAlpha(0.5),
-          fillColor: sponsor.color,
-          pixelOffset: new Cesium.Cartesian2(0, -14)
-        }
-      })
-    );
+function refreshIndoorFloors() {
+  const location = MOCK_INDOOR_LOCATIONS.find((x) => x.id === dom.indoorLocationSelect.value) || MOCK_INDOOR_LOCATIONS[0];
+  dom.indoorFloorSelect.innerHTML = '';
+  location.floors.forEach((floor) => {
+    const option = document.createElement('option');
+    option.value = floor.id;
+    option.textContent = floor.name;
+    dom.indoorFloorSelect.append(option);
   });
 }
 
-function setSponsorOverlays(enabled) {
-  createSponsorEntities();
-  state.sponsorEntities.forEach((entity) => {
-    entity.show = enabled;
+function runIndoorSearch() {
+  const location = MOCK_INDOOR_LOCATIONS.find((x) => x.id === dom.indoorLocationSelect.value) || MOCK_INDOOR_LOCATIONS[0];
+  const floor = location.floors.find((x) => x.id === dom.indoorFloorSelect.value) || location.floors[0];
+  const query = dom.indoorSearch.value.trim().toLowerCase();
+  const match = floor.rooms.find((room) => room.toLowerCase().includes(query));
+  dom.indoorResult.textContent = match
+    ? `Path highlighted in mock indoor graph: Entrance → ${match} (${floor.name})`
+    : `No direct match. Suggested path: Entrance → Info Desk (${floor.name})`;
+}
+
+function renderPopularTimes() {
+  const key = dom.popularTimesType.value;
+  const values = MOCK_POPULAR_TIMES[key] || [];
+  dom.popularTimesGraph.innerHTML = '';
+  const current = values[new Date().getHours() % values.length] ?? 0;
+
+  values.forEach((value) => {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = `${value}%`;
+    bar.title = `${value}% busy`;
+    dom.popularTimesGraph.append(bar);
   });
-  dom.sponsorOverlayBtn.classList.toggle('active', enabled);
-  scene.requestRender();
+
+  const wait = current > 75 ? 'High wait' : current > 50 ? 'Moderate wait' : 'Low wait';
+  dom.indoorResult.textContent = `Current busyness: ${current}% · ${wait}`;
+}
+
+function renderTimeline() {
+  const entries = timelineService.get();
+  dom.timelineList.innerHTML = '';
+  entries.slice(0, 20).forEach((entry) => {
+    const li = document.createElement('li');
+    li.textContent = `${entry.at} · ${entry.type} · ${entry.mode || 'unknown'}`;
+    dom.timelineList.append(li);
+  });
+  dom.pauseTimelineBtn.textContent = timelineService.isPaused() ? 'Resume tracking' : 'Pause tracking';
+}
+
+function initSharing() {
+  MOCK_CONTACTS.forEach((contact) => {
+    const option = document.createElement('option');
+    option.value = contact.id;
+    option.textContent = contact.name;
+    dom.shareContactSelect.append(option);
+  });
+  renderSharingSessions();
+}
+
+function renderSharingSessions() {
+  const sessions = sharingService.getSessions();
+  dom.shareSessions.innerHTML = '';
+  sessions.forEach((session) => {
+    const li = document.createElement('li');
+    li.textContent = `${session.contactName} · ${session.durationMin} min · ETA ${session.eta} · Battery ${session.battery}%`;
+    const stopBtn = document.createElement('button');
+    stopBtn.textContent = 'Stop';
+    stopBtn.addEventListener('click', () => {
+      sharingService.stop(session.id);
+      renderSharingSessions();
+    });
+    li.append(' ', stopBtn);
+    dom.shareSessions.append(li);
+  });
+}
+
+function renderContributions() {
+  dom.contribList.innerHTML = '';
+  state.contributions.forEach((entry) => {
+    const li = document.createElement('li');
+    li.textContent = `${entry.type}: ${entry.text} · ${entry.status}`;
+    dom.contribList.append(li);
+  });
+
+  const points = state.contributions.length * 2;
+  const badge = [...CONTRIBUTION_BADGES].reverse().find((x) => points >= x.threshold)?.badge || 'New';
+  dom.contribScore.textContent = `Points: ${points} · Badge: ${badge}`;
 }
 
 function bindEvents() {
-  dom.searchBtn.addEventListener('click', async () => {
-    try {
-      await flyToAddress(dom.searchInput.value);
-    } catch (e) {
-      alert(e.message);
-    }
-  });
-
+  dom.panelToggle.addEventListener('click', () => dom.labPanel.classList.toggle('open'));
+  dom.searchBtn.addEventListener('click', () => flyToQuery(dom.searchInput.value).catch((e) => alert(e.message)));
   dom.searchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') dom.searchBtn.click();
   });
 
-  dom.cityButtons.forEach((btn) => btn.addEventListener('click', () => viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(Number(btn.dataset.cityLon), Number(btn.dataset.cityLat), 7000), duration: 2 })));
-  dom.goHomeBtn.addEventListener('click', () => flyToAddress('Home, Miami, FL'));
-  dom.goWorkBtn.addEventListener('click', () => flyToAddress('Downtown Miami, FL'));
-
-  dom.nightToggle.addEventListener('change', () => (nightLayer.alpha = dom.nightToggle.checked ? 0.85 : 0));
-  dom.labelsToggle.addEventListener('change', () => (labelsLayer.show = dom.labelsToggle.checked));
-  dom.cloudsToggle.addEventListener('change', () => (cloudLayer.show = dom.cloudsToggle.checked));
-  dom.fogToggle.addEventListener('change', () => (scene.fog.enabled = dom.fogToggle.checked));
-  dom.atmosphereToggle.addEventListener('change', () => (scene.skyAtmosphere.show = dom.atmosphereToggle.checked));
-  dom.buildingsToggle.addEventListener('change', () => state.buildingsTileset && (state.buildingsTileset.show = dom.buildingsToggle.checked));
-  dom.quakesToggle.addEventListener('change', () => toggleQuakes(dom.quakesToggle.checked));
-
-  dom.sunSlider.addEventListener('input', () => {
-    const d = new Date();
-    d.setHours(Number(dom.sunSlider.value));
-    viewer.clock.currentTime = Cesium.JulianDate.fromDate(d);
-  });
-  dom.terrainExaggeration.addEventListener('input', () => (scene.verticalExaggeration = Number(dom.terrainExaggeration.value)));
-
-  dom.nowBtn.addEventListener('click', () => (viewer.clock.currentTime = Cesium.JulianDate.now()));
-  dom.orbitalViewBtn.addEventListener('click', () => viewer.camera.flyTo({ destination: ORBITAL_DESTINATION, duration: 1.6 }));
-  dom.resetNorthBtn.addEventListener('click', () => viewer.camera.flyTo({ destination: viewer.camera.positionWC, orientation: { heading: 0, pitch: viewer.camera.pitch, roll: 0 }, duration: 0.8 }));
-  dom.autoRotateBtn.addEventListener('click', () => {
-    state.autoRotate = !state.autoRotate;
-    dom.autoRotateBtn.classList.toggle('active', state.autoRotate);
-  });
-
-  dom.measureBtn.addEventListener('click', () => setTool('measure'));
-  dom.measureAreaBtn.addEventListener('click', () => setTool('area'));
-  dom.annotateBtn.addEventListener('click', () => setTool('annotate'));
-  dom.clearMeasureBtn.addEventListener('click', clearScratch);
-
-  let eventModeOn = false;
-  let sponsorOn = false;
-  dom.eventModeBtn.addEventListener('click', () => {
-    eventModeOn = !eventModeOn;
-    setEventMode(eventModeOn);
-  });
-  dom.sponsorOverlayBtn.addEventListener('click', () => {
-    sponsorOn = !sponsorOn;
-    setSponsorOverlays(sponsorOn);
-  });
-  dom.moodSlider.addEventListener('input', () => setMood(dom.moodSlider.value));
-
-  dom.saveViewBtn.addEventListener('click', saveView);
-  dom.loadViewBtn.addEventListener('click', loadView);
-  dom.deleteViewBtn.addEventListener('click', deleteView);
-  dom.tourBtn.addEventListener('click', () => {
-    const on = dom.tourBtn.classList.toggle('active');
-    if (on) startTour();
-    else stopTour();
-  });
-
-  if (FEATURE_FLAGS.geoImport) {
-    dom.importFile.addEventListener('change', async (event) => {
-      const [file] = event.target.files;
-      if (!file) return;
-      const url = URL.createObjectURL(file);
-      const ds = file.name.endsWith('.kml') || file.name.endsWith('.gpx')
-        ? await Cesium.KmlDataSource.load(url, { camera: scene.camera, canvas: scene.canvas })
-        : await Cesium.GeoJsonDataSource.load(url);
-      viewer.dataSources.add(ds);
+  dom.cityButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(Number(button.dataset.cityLon), Number(button.dataset.cityLat), 6000),
+        duration: 1.6
+      });
+      maybeLogTimeline({ type: 'preset_jump', value: button.textContent, at: new Date().toISOString(), mode: 'map' });
     });
-  }
-
-  dom.panelToggle.addEventListener('click', () => dom.labPanel.classList.toggle('open'));
-  dom.routeCompareBtn.addEventListener('click', compareRoutes);
-
-  dom.overlayToggles.forEach((toggle) => {
-    toggle.addEventListener('change', () => filterOverlay(toggle.dataset.overlay, toggle.checked));
   });
 
-  document.addEventListener('keydown', (event) => {
-    if (event.key.toLowerCase() === 'f') dom.searchInput.focus();
-    if (event.key.toLowerCase() === 'r') dom.autoRotateBtn.click();
-    if (event.key.toLowerCase() === 'm') dom.measureBtn.click();
-    if (event.key.toLowerCase() === 'a') dom.annotateBtn.click();
-  });
-
+  const clickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
   clickHandler.setInputAction((movement) => {
-    const p = getPick(movement.position);
-    if (!p) return;
-    setInfoCard(p);
-
-    if (state.activeTool === 'measure' && FEATURE_FLAGS.measurements) {
-      state.clickPoints.push(p);
-      state.scratchEntities.push(viewer.entities.add({ position: p, point: { pixelSize: 8, color: Cesium.Color.CYAN } }));
-      if (state.clickPoints.length === 2) {
-        const km = Cesium.Cartesian3.distance(state.clickPoints[0], state.clickPoints[1]) / 1000;
-        state.scratchEntities.push(viewer.entities.add({ polyline: { positions: [...state.clickPoints], width: 3, material: Cesium.Color.YELLOW } }));
-        state.scratchEntities.push(viewer.entities.add({ position: p, label: { text: `${km.toFixed(2)} km`, showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.65) } }));
-        state.clickPoints = [];
-      }
-    }
-
-    if (state.activeTool === 'area' && FEATURE_FLAGS.measurements) {
-      state.areaPoints.push(p);
-      state.scratchEntities.push(viewer.entities.add({ position: p, point: { pixelSize: 7, color: Cesium.Color.LIME } }));
-    }
-
-    if (state.activeTool === 'annotate' && FEATURE_FLAGS.annotations) {
-      const note = prompt('Pin note');
-      if (!note) return;
-      state.scratchEntities.push(
-        viewer.entities.add({
-          position: p,
-          point: { pixelSize: 9, color: Cesium.Color.ORANGE },
-          label: { text: note, showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.7), pixelOffset: new Cesium.Cartesian2(0, -16) }
-        })
-      );
-    }
+    const cartesian = getPickCartesian(movement.position);
+    if (!cartesian) return;
+    state.selectedCartesian = cartesian;
+    updateInfoCard(cartesian);
+    maybeLogTimeline({ type: 'map_select', at: new Date().toISOString(), mode: 'map' });
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-  clickHandler.setInputAction(() => {
-    if (state.activeTool === 'area' && state.areaPoints.length >= 3) {
-      const km2 = polygonAreaKm2(state.areaPoints);
-      state.scratchEntities.push(viewer.entities.add({ polygon: { hierarchy: new Cesium.PolygonHierarchy([...state.areaPoints]), material: Cesium.Color.LIME.withAlpha(0.25) } }));
-      state.scratchEntities.push(viewer.entities.add({ position: state.areaPoints[0], label: { text: `${km2.toFixed(2)} km²`, showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.7) } }));
-      state.areaPoints = [];
-    }
-  }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+  dom.incognitoToggle.addEventListener('change', () => {
+    state.incognito = dom.incognitoToggle.checked;
+    sessionStorage.setItem('map_lab_incognito', state.incognito ? '1' : '0');
+    setPrivacyStatus();
+  });
 
-  viewer.clock.onTick.addEventListener(() => {
-    if (state.autoRotate && state.activeTool === null) scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.0004);
+  dom.streetModeBtn.addEventListener('click', enterStreetMode);
+  dom.enterStreetViewBtn.addEventListener('click', enterStreetMode);
+  dom.streetExitBtn.addEventListener('click', exitStreetMode);
+  dom.panLeftBtn.addEventListener('click', () => {
+    state.streetHeading -= 30;
+    renderStreetMode();
+  });
+  dom.panRightBtn.addEventListener('click', () => {
+    state.streetHeading += 30;
+    renderStreetMode();
+  });
+  dom.streetYearSlider.addEventListener('input', () => {
+    state.panoramaYearIndex = Number(dom.streetYearSlider.value);
+    renderStreetMode();
+  });
+
+  dom.createListBtn.addEventListener('click', () => {
+    const name = dom.newListName.value.trim();
+    if (!name) return;
+    state.savedLists.push({ id: `list_${Date.now()}`, name, items: [] });
+    dom.newListName.value = '';
+    persistLists();
+    renderSavedLists();
+  });
+  dom.saveCurrentPlaceBtn.addEventListener('click', saveCurrentPlaceToList);
+
+  dom.indoorLocationSelect.addEventListener('change', refreshIndoorFloors);
+  dom.indoorFindBtn.addEventListener('click', runIndoorSearch);
+
+  dom.renderPopularTimesBtn.addEventListener('click', renderPopularTimes);
+
+  dom.timelineBtn.addEventListener('click', () => dom.labPanel.classList.add('open'));
+  dom.pauseTimelineBtn.addEventListener('click', () => {
+    timelineService.setPaused(!timelineService.isPaused());
+    renderTimeline();
+  });
+  dom.deleteTimelineBtn.addEventListener('click', () => {
+    timelineService.clear();
+    renderTimeline();
+  });
+  dom.exportTimelineBtn.addEventListener('click', () => {
+    const blob = new Blob([timelineService.export()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'timeline-export.json';
+    a.click();
+  });
+
+  dom.sharingBtn.addEventListener('click', () => dom.labPanel.classList.add('open'));
+  dom.startShareBtn.addEventListener('click', () => {
+    const contact = MOCK_CONTACTS.find((x) => x.id === dom.shareContactSelect.value) || MOCK_CONTACTS[0];
+    sharingService.start({
+      id: `share_${Date.now()}`,
+      contactId: contact.id,
+      contactName: contact.name,
+      durationMin: Number(dom.shareDurationSelect.value),
+      eta: `${Math.floor(Math.random() * 25 + 8)} min`,
+      battery: Math.floor(Math.random() * 40 + 55)
+    });
+    renderSharingSessions();
+  });
+
+  dom.guidesBtn.addEventListener('click', () => dom.labPanel.classList.add('open'));
+  dom.submitContribBtn.addEventListener('click', () => {
+    const text = dom.contribText.value.trim();
+    if (!text) return;
+    const entry = {
+      id: `contrib_${Date.now()}`,
+      type: dom.contribType.value,
+      text,
+      status: 'pending',
+      at: new Date().toISOString(),
+      moderation: adapters.contributionsProvider
+    };
+    contributionService.add(entry);
+    state.contributions = contributionService.get();
+    dom.contribText.value = '';
+    renderContributions();
   });
 }
 
 function initialize() {
-  enableGlobalTerrain();
-  initBuildings();
-  initOverlays();
+  setPrivacyStatus();
+  renderSavedLists();
+  initIndoorDemo();
+  renderPopularTimes();
+  renderTimeline();
+  initSharing();
+  renderContributions();
   bindEvents();
-  updateEasternClock();
-  setInterval(updateEasternClock, 30_000);
-  refreshSavedViews();
-  renderRecentPlaces();
-  setMood(dom.moodSlider.value);
-  viewer.camera.flyTo({ destination: ORBITAL_DESTINATION, duration: 0 });
 }
 
 initialize();

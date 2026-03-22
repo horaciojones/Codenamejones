@@ -10,107 +10,130 @@
   <body>
     <div id="toolbar" aria-label="Viewer controls">
       <h1>Map Laboratory</h1>
-      <p class="subtitle">One renderer, many personal workflows.</p>
+      <p class="subtitle">Exploration + Personal Intelligence + Privacy</p>
 
       <div class="control-row compact search-row">
         <input id="searchInput" type="text" placeholder="City / address / '25.7617,-80.1918'" />
         <button id="searchBtn" type="button">Go</button>
+        <label class="toggle"><input id="incognitoToggle" type="checkbox" /> <span>Incognito</span></label>
       </div>
 
       <div class="control-row compact city-row">
         <button type="button" data-city-lon="-80.1918" data-city-lat="25.7617">Miami</button>
         <button type="button" data-city-lon="-74.006" data-city-lat="40.7128">NYC</button>
         <button type="button" data-city-lon="139.6917" data-city-lat="35.6895">Tokyo</button>
-        <button id="goHomeBtn" type="button">Home</button>
-        <button id="goWorkBtn" type="button">Work</button>
-      </div>
-
-      <div class="control-row compact toggles-row">
-        <label class="toggle"><input id="nightToggle" type="checkbox" /> <span>Night lights</span></label>
-        <label class="toggle"><input id="labelsToggle" type="checkbox" checked /> <span>Road labels</span></label>
-        <label class="toggle"><input id="cloudsToggle" type="checkbox" checked /> <span>Clouds</span></label>
-        <label class="toggle"><input id="fogToggle" type="checkbox" checked /> <span>Fog</span></label>
-        <label class="toggle"><input id="atmosphereToggle" type="checkbox" checked /> <span>Atmosphere</span></label>
-        <label class="toggle"><input id="buildingsToggle" type="checkbox" checked /> <span>3D buildings</span></label>
-        <label class="toggle"><input id="quakesToggle" type="checkbox" /> <span>Earthquakes</span></label>
+        <button id="streetModeBtn" type="button">Street mode</button>
       </div>
 
       <div class="control-row compact">
-        <label for="sunSlider">Sun hour</label>
-        <input id="sunSlider" type="range" min="0" max="23" step="1" value="12" />
-        <label for="terrainExaggeration">Terrain x</label>
-        <input id="terrainExaggeration" type="range" min="1" max="5" step="0.1" value="1" />
+        <button id="saveCurrentPlaceBtn" type="button">Save current place</button>
+        <button id="timelineBtn" type="button">Timeline</button>
+        <button id="sharingBtn" type="button">Location sharing</button>
+        <button id="guidesBtn" type="button">Local guides</button>
       </div>
 
-      <div class="control-row compact">
-        <button id="nowBtn" type="button">Now</button>
-        <button id="orbitalViewBtn" type="button">Orbital view</button>
-        <button id="resetNorthBtn" type="button">Compass reset</button>
-        <button id="autoRotateBtn" type="button">Auto rotate</button>
-      </div>
-
-
-      <div class="control-row compact">
-        <button id="eventModeBtn" type="button">Event scene mode</button>
-        <button id="sponsorOverlayBtn" type="button">Sponsor overlays</button>
-        <label for="moodSlider">Mood</label>
-        <input id="moodSlider" type="range" min="0" max="100" value="55" />
-      </div>
-      <div class="control-row compact">
-        <button id="measureBtn" type="button">Measure distance</button>
-        <button id="measureAreaBtn" type="button">Measure area</button>
-        <button id="clearMeasureBtn" type="button">Clear measure</button>
-        <button id="annotateBtn" type="button">Drop pin</button>
-      </div>
-
-      <div class="control-row compact view-row">
-        <button id="saveViewBtn" type="button">Save viewpoint</button>
-        <select id="savedViews"></select>
-        <button id="loadViewBtn" type="button">Load</button>
-        <button id="deleteViewBtn" type="button">Delete</button>
-        <button id="tourBtn" type="button">Tour mode</button>
-      </div>
-
-      <div class="control-row compact">
-        <label for="importFile">Import GeoJSON/KML/GPX</label>
-        <input id="importFile" type="file" accept=".geojson,.json,.kml,.gpx" />
-      </div>
-      <small id="easternClock">Eastern time: --</small>
+      <small id="privacyStatus">Private history enabled</small>
     </div>
 
-    <button id="panelToggle" class="panel-toggle" type="button">☰ Lab Panel</button>
+    <button id="panelToggle" class="panel-toggle" type="button">☰ Explorer Panel</button>
     <aside id="labPanel" class="open">
-      <h2>Map Lab</h2>
+      <h2>Explorer & Personalization</h2>
+
       <section>
-        <h3>Route Lab (experimental)</h3>
+        <h3>Street View / Immersive Ground</h3>
         <div class="route-row">
-          <input id="routeFrom" type="text" placeholder="From" />
-          <input id="routeTo" type="text" placeholder="To" />
-          <button id="routeCompareBtn" type="button">Compare 3 routes</button>
+          <button id="enterStreetViewBtn" type="button">Enter from selected point</button>
+          <label>Time travel</label>
+          <input id="streetYearSlider" type="range" min="0" max="2" value="0" />
         </div>
-        <ul id="routeResults"></ul>
+        <p id="streetYearLabel">Year: current</p>
       </section>
 
       <section>
-        <h3>Personal overlays</h3>
-        <div class="overlay-row">
-          <label><input type="checkbox" class="overlayToggle" data-overlay="work" checked /> Work</label>
-          <label><input type="checkbox" class="overlayToggle" data-overlay="food" checked /> Food</label>
-          <label><input type="checkbox" class="overlayToggle" data-overlay="gym" checked /> Gym</label>
-          <label><input type="checkbox" class="overlayToggle" data-overlay="danger" checked /> Danger</label>
+        <h3>Saved Places & Lists</h3>
+        <div class="route-row">
+          <input id="newListName" type="text" placeholder="New list name" />
+          <button id="createListBtn" type="button">Create list</button>
         </div>
+        <ul id="savedLists"></ul>
       </section>
 
       <section>
-        <h3>Recent searches</h3>
-        <ul id="recentPlaces"></ul>
+        <h3>Indoor Maps (mock demo)</h3>
+        <div class="route-row">
+          <select id="indoorLocationSelect"></select>
+          <select id="indoorFloorSelect"></select>
+          <input id="indoorSearch" type="text" placeholder="Find room / gate / store" />
+          <button id="indoorFindBtn" type="button">Highlight path</button>
+        </div>
+        <p id="indoorResult">Select a location and floor to begin.</p>
       </section>
 
       <section>
-        <h3>Shortcuts</h3>
-        <p>F: focus search · R: toggle auto-rotate · M: measure distance · A: annotate</p>
+        <h3>Popular Times / Busyness</h3>
+        <div class="route-row">
+          <select id="popularTimesType">
+            <option value="brunch">Brunch spots</option>
+            <option value="gym">Gyms</option>
+          </select>
+          <button id="renderPopularTimesBtn" type="button">Render graph</button>
+        </div>
+        <div id="popularTimesGraph" class="bar-graph"></div>
+      </section>
+
+      <section>
+        <h3>Timeline (private by default)</h3>
+        <div class="route-row">
+          <button id="pauseTimelineBtn" type="button">Pause tracking</button>
+          <button id="deleteTimelineBtn" type="button">Delete entries</button>
+          <button id="exportTimelineBtn" type="button">Export JSON</button>
+        </div>
+        <ul id="timelineList"></ul>
+      </section>
+
+      <section>
+        <h3>Trusted-contact location sharing</h3>
+        <div class="route-row">
+          <select id="shareContactSelect"></select>
+          <select id="shareDurationSelect">
+            <option value="15">15 min</option>
+            <option value="60">1 hour</option>
+            <option value="480">8 hours</option>
+          </select>
+          <button id="startShareBtn" type="button">Start sharing</button>
+        </div>
+        <ul id="shareSessions"></ul>
+      </section>
+
+      <section>
+        <h3>Local Guides / Contributions</h3>
+        <div class="route-row">
+          <select id="contribType">
+            <option value="review">Review</option>
+            <option value="photo">Photo</option>
+            <option value="correction">Correction</option>
+            <option value="place_edit">Place edit</option>
+            <option value="tag">Tag</option>
+          </select>
+          <input id="contribText" type="text" placeholder="Contribution text" />
+          <button id="submitContribBtn" type="button">Submit</button>
+        </div>
+        <p id="contribScore">Points: 0 · Badge: New</p>
+        <ul id="contribList"></ul>
       </section>
     </aside>
+
+    <div id="streetOverlay" class="overlay hidden">
+      <div class="overlay-card">
+        <h3>Immersive Street Mode (mock panoramic)</h3>
+        <div id="streetPanorama">Panorama viewport</div>
+        <div class="route-row">
+          <button id="panLeftBtn" type="button">←</button>
+          <button id="panRightBtn" type="button">→</button>
+          <button id="streetExitBtn" type="button">Exit to 3D map</button>
+        </div>
+      </div>
+    </div>
 
     <div id="infoCard" aria-live="polite">
       <strong>Location</strong>
