@@ -5,7 +5,8 @@ const FEATURE_FLAGS = {
   geoImport: true,
   tourMode: true,
   annotations: true,
-  measurements: true
+  measurements: true,
+  eventDesign: true
 };
 
 const ORBITAL_DESTINATION = Cesium.Cartesian3.fromDegrees(-30.0, 25.0, 25_000_000);
@@ -100,6 +101,9 @@ const dom = {
   measureAreaBtn: document.getElementById('measureAreaBtn'),
   clearMeasureBtn: document.getElementById('clearMeasureBtn'),
   annotateBtn: document.getElementById('annotateBtn'),
+  eventModeBtn: document.getElementById('eventModeBtn'),
+  sponsorOverlayBtn: document.getElementById('sponsorOverlayBtn'),
+  moodSlider: document.getElementById('moodSlider'),
   saveViewBtn: document.getElementById('saveViewBtn'),
   savedViews: document.getElementById('savedViews'),
   loadViewBtn: document.getElementById('loadViewBtn'),
@@ -127,7 +131,9 @@ const state = {
   overlayEntities: [],
   buildingsTileset: null,
   quakesDataSource: null,
-  tourTimer: null
+  tourTimer: null,
+  eventEntities: [],
+  sponsorEntities: []
 };
 
 const clickHandler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
@@ -366,6 +372,141 @@ function stopTour() {
   clearInterval(state.tourTimer);
 }
 
+
+function setMood(value) {
+  const normalized = Number(value) / 100;
+  scene.skyAtmosphere.hueShift = -0.05 + normalized * 0.12;
+  scene.skyAtmosphere.saturationShift = 0.1 + normalized * 0.25;
+  scene.skyAtmosphere.brightnessShift = 0.05 + normalized * 0.2;
+  scene.requestRender();
+}
+
+function createEventEntities() {
+  if (!FEATURE_FLAGS.eventDesign || state.eventEntities.length > 0) return;
+
+  const route = [
+    Cesium.Cartesian3.fromDegrees(-80.199, 25.772, 3),
+    Cesium.Cartesian3.fromDegrees(-80.194, 25.769, 3),
+    Cesium.Cartesian3.fromDegrees(-80.189, 25.765, 3),
+    Cesium.Cartesian3.fromDegrees(-80.183, 25.761, 3)
+  ];
+
+  state.eventEntities.push(
+    viewer.entities.add({
+      polyline: { positions: route, width: 8, material: Cesium.Color.CYAN.withAlpha(0.85) },
+      name: 'Event route spine'
+    })
+  );
+
+  route.forEach((point, idx) => {
+    state.eventEntities.push(
+      viewer.entities.add({
+        position: point,
+        point: { pixelSize: 11, color: Cesium.Color.WHITE, outlineColor: Cesium.Color.CYAN, outlineWidth: 2 },
+        label: { text: `Waypoint ${idx + 1}`, showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55), pixelOffset: new Cesium.Cartesian2(0, -18) }
+      })
+    );
+  });
+
+  // Shoreline grandstands (contextual, not billboard clutter)
+  state.eventEntities.push(
+    viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(-80.1912, 25.7678, 25),
+      box: { dimensions: new Cesium.Cartesian3(120, 42, 20), material: Cesium.Color.SLATEGRAY.withAlpha(0.78) },
+      label: { text: 'Shoreline Grandstand A', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55), pixelOffset: new Cesium.Cartesian2(0, -30) }
+    })
+  );
+
+  state.eventEntities.push(
+    viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(-80.1869, 25.7638, 22),
+      box: { dimensions: new Cesium.Cartesian3(100, 36, 16), material: Cesium.Color.SLATEGRAY.withAlpha(0.76) },
+      label: { text: 'Shoreline Grandstand B', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55), pixelOffset: new Cesium.Cartesian2(0, -30) }
+    })
+  );
+
+  // Staging + activation areas
+  state.eventEntities.push(
+    viewer.entities.add({
+      polygon: {
+        hierarchy: Cesium.Cartesian3.fromDegreesArray([-80.198, 25.770, -80.196, 25.770, -80.196, 25.768, -80.198, 25.768]),
+        material: Cesium.Color.ORANGE.withAlpha(0.28)
+      },
+      label: { text: 'Staging Zone', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55) }
+    })
+  );
+
+  state.eventEntities.push(
+    viewer.entities.add({
+      polygon: {
+        hierarchy: Cesium.Cartesian3.fromDegreesArray([-80.188, 25.7648, -80.1865, 25.7648, -80.1865, 25.7634, -80.188, 25.7634]),
+        material: Cesium.Color.MEDIUMSPRINGGREEN.withAlpha(0.24)
+      },
+      label: { text: 'Activation Area', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55) }
+    })
+  );
+
+  // Route-side custom structures
+  state.eventEntities.push(
+    viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(-80.1934, 25.7685, 18),
+      box: { dimensions: new Cesium.Cartesian3(40, 20, 24), material: Cesium.Color.DARKCYAN.withAlpha(0.68) },
+      label: { text: 'Route Ops Tower', showBackground: true, backgroundColor: Cesium.Color.BLACK.withAlpha(0.55), pixelOffset: new Cesium.Cartesian2(0, -20) }
+    })
+  );
+}
+
+function setEventMode(enabled) {
+  createEventEntities();
+  state.eventEntities.forEach((entity) => {
+    entity.show = enabled;
+  });
+  dom.eventModeBtn.classList.toggle('active', enabled);
+  scene.requestRender();
+}
+
+function createSponsorEntities() {
+  if (state.sponsorEntities.length > 0) return;
+
+  const sponsors = [
+    { name: 'Title Partner', lon: -80.1918, lat: 25.7664, color: Cesium.Color.GOLD },
+    { name: 'Energy Partner', lon: -80.1874, lat: 25.7639, color: Cesium.Color.LIGHTSKYBLUE },
+    { name: 'Mobility Partner', lon: -80.1952, lat: 25.7696, color: Cesium.Color.LIME }
+  ];
+
+  sponsors.forEach((sponsor) => {
+    state.sponsorEntities.push(
+      viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(sponsor.lon, sponsor.lat, 6),
+        ellipse: {
+          semiMinorAxis: 28,
+          semiMajorAxis: 28,
+          height: 1,
+          material: sponsor.color.withAlpha(0.18),
+          outline: true,
+          outlineColor: sponsor.color.withAlpha(0.9)
+        },
+        label: {
+          text: sponsor.name,
+          showBackground: true,
+          backgroundColor: Cesium.Color.BLACK.withAlpha(0.5),
+          fillColor: sponsor.color,
+          pixelOffset: new Cesium.Cartesian2(0, -14)
+        }
+      })
+    );
+  });
+}
+
+function setSponsorOverlays(enabled) {
+  createSponsorEntities();
+  state.sponsorEntities.forEach((entity) => {
+    entity.show = enabled;
+  });
+  dom.sponsorOverlayBtn.classList.toggle('active', enabled);
+  scene.requestRender();
+}
+
 function bindEvents() {
   dom.searchBtn.addEventListener('click', async () => {
     try {
@@ -410,6 +551,18 @@ function bindEvents() {
   dom.measureAreaBtn.addEventListener('click', () => setTool('area'));
   dom.annotateBtn.addEventListener('click', () => setTool('annotate'));
   dom.clearMeasureBtn.addEventListener('click', clearScratch);
+
+  let eventModeOn = false;
+  let sponsorOn = false;
+  dom.eventModeBtn.addEventListener('click', () => {
+    eventModeOn = !eventModeOn;
+    setEventMode(eventModeOn);
+  });
+  dom.sponsorOverlayBtn.addEventListener('click', () => {
+    sponsorOn = !sponsorOn;
+    setSponsorOverlays(sponsorOn);
+  });
+  dom.moodSlider.addEventListener('input', () => setMood(dom.moodSlider.value));
 
   dom.saveViewBtn.addEventListener('click', saveView);
   dom.loadViewBtn.addEventListener('click', loadView);
@@ -503,6 +656,7 @@ function initialize() {
   setInterval(updateEasternClock, 30_000);
   refreshSavedViews();
   renderRecentPlaces();
+  setMood(dom.moodSlider.value);
   viewer.camera.flyTo({ destination: ORBITAL_DESTINATION, duration: 0 });
 }
 

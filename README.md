@@ -21,6 +21,9 @@ This app is designed as a **map laboratory**: one 3D renderer (Cesium) with modu
 - Route Lab panel (experimental compare-3-routes UX placeholder).
 - Data layers: USGS earthquakes toggle, GeoJSON/KML/GPX import.
 - Keyboard shortcuts: `F` search, `R` auto-rotate, `M` measure, `A` annotate.
+- Event-scene design mode: waypoint markers, shoreline grandstands, staging zones, route-side custom structures, and activation areas.
+- Sponsor overlays as native environmental placements (ground-integrated halos + labels) to maximize visibility without billboard clutter.
+- Mood slider for atmospheric color/tone shaping suitable for premium event visualization.
 
 ## Run
 
@@ -43,3 +46,5 @@ Open:
 
 - This is for personal experimentation and uses public/free endpoints only.
 - If OSM 3D buildings are unavailable, the buildings toggle auto-disables.
+
+- Cesium for Unreal + Google Photorealistic 3D Tiles pipeline is not part of this web repo; this implementation provides the CesiumJS web equivalent for event-scene prototyping.
