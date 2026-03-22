@@ -13,7 +13,9 @@ This app is designed as a **map laboratory**: one 3D renderer (Cesium) with modu
 - Command bar search (address/city/coordinates) + recent searches.
 - Saved viewpoints + city presets (Miami/NYC/Tokyo) + tour mode.
 - Camera controls: orbital reset, compass reset, auto-rotate.
-- Realism controls: day/night, sun slider, clouds, fog, atmosphere, terrain exaggeration, optional 3D buildings.
+- Global 3D terrain (Cesium World Terrain when available, with graceful fallback).
+- Global 3D buildings via OSM Buildings (auto-disables if unavailable).
+- Realism controls: day/night, sun slider, clouds, fog, atmosphere, terrain exaggeration.
 - Interaction tools: lat/lon/elevation info card, distance measure, area measure, pin notes.
 - Personal overlays (work/food/gym/danger) with per-layer toggles.
 - Route Lab panel (experimental compare-3-routes UX placeholder).

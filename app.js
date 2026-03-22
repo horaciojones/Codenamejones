@@ -32,6 +32,17 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
   terrainProvider: new Cesium.EllipsoidTerrainProvider()
 });
 
+async function enableGlobalTerrain() {
+  try {
+    const terrain = await Cesium.createWorldTerrainAsync({ requestVertexNormals: true, requestWaterMask: true });
+    viewer.scene.terrainProvider = terrain;
+    viewer.scene.globe.depthTestAgainstTerrain = true;
+  } catch {
+    // Fallback remains ellipsoid terrain if world terrain is unavailable.
+  }
+}
+
+
 const scene = viewer.scene;
 const globe = scene.globe;
 const imageryLayers = globe.imageryLayers;
@@ -484,6 +495,7 @@ function bindEvents() {
 }
 
 function initialize() {
+  enableGlobalTerrain();
   initBuildings();
   initOverlays();
   bindEvents();
