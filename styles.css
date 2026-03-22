@@ -18,7 +18,7 @@ body,
   z-index: 10;
   top: 1rem;
   left: 1rem;
-  width: min(29rem, calc(100% - 2rem));
+  width: min(34rem, calc(100% - 2rem));
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -64,6 +64,10 @@ small {
   min-width: 7rem;
 }
 
+.toggles-row {
+  gap: 0.7rem;
+}
+
 .toggle {
   display: inline-flex;
   gap: 0.5rem;
@@ -72,7 +76,8 @@ small {
 
 button,
 input[type='datetime-local'],
-input[type='text'] {
+input[type='text'],
+select {
   color: #e6edff;
   background: rgb(147 170 255 / 14%);
   border: 1px solid rgb(170 189 255 / 28%);
@@ -83,4 +88,13 @@ input[type='text'] {
 button:hover {
   cursor: pointer;
   background: rgb(147 170 255 / 24%);
+}
+
+button.active {
+  background: rgb(95 222 175 / 26%);
+  border-color: rgb(95 222 175 / 55%);
+}
+
+.view-row select {
+  min-width: 12rem;
 }

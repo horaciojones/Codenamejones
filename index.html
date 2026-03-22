@@ -13,10 +13,10 @@
   <body>
     <div id="toolbar" aria-label="Viewer controls">
       <h1>Earth Digital Twin</h1>
-      <p class="subtitle">Search any address and zoom to roads/places in seconds</p>
+      <p class="subtitle">search → fly in → inspect 3D → toggle → measure/annotate → save view</p>
 
       <div class="control-row compact search-row">
-        <input id="searchInput" type="text" placeholder="Search address (ex: 1600 Pennsylvania Ave NW, Washington, DC)" />
+        <input id="searchInput" type="text" placeholder="Search address (ex: Miami Beach, FL)" />
         <button id="searchBtn" type="button">Go</button>
       </div>
 
@@ -26,22 +26,40 @@
         <button type="button" data-city-lon="-118.2437" data-city-lat="34.0522">Los Angeles</button>
       </div>
 
-      <div class="control-row">
-        <label class="toggle">
-          <input id="nightToggle" type="checkbox" />
-          <span>Night lights</span>
-        </label>
+      <div class="control-row compact toggles-row">
+        <label class="toggle"><input id="nightToggle" type="checkbox" /> <span>Night lights</span></label>
+        <label class="toggle"><input id="labelsToggle" type="checkbox" checked /> <span>Road labels</span></label>
+        <label class="toggle"><input id="cloudsToggle" type="checkbox" checked /> <span>Clouds</span></label>
+        <label class="toggle"><input id="buildingsToggle" type="checkbox" checked /> <span>3D buildings</span></label>
       </div>
+
       <div class="control-row">
         <label for="dateTime">Orbital date/time (your local timezone)</label>
         <input id="dateTime" type="datetime-local" step="60" />
         <small id="easternClock">Eastern time: --</small>
       </div>
+
       <div class="control-row compact">
         <button id="nowBtn" type="button">Now</button>
         <button id="orbitalViewBtn" type="button">Orbital view</button>
       </div>
-      <p class="hint">Scroll to zoom in/out. Right-click + drag to tilt. Double-click to center.</p>
+
+      <div class="control-row compact">
+        <button id="measureBtn" type="button">Measure</button>
+        <button id="clearMeasureBtn" type="button">Clear measure</button>
+        <button id="annotateBtn" type="button">Annotate</button>
+      </div>
+
+      <div class="control-row compact view-row">
+        <button id="saveViewBtn" type="button">Save viewpoint</button>
+        <select id="savedViews">
+          <option value="" selected disabled>Saved viewpoints</option>
+        </select>
+        <button id="loadViewBtn" type="button">Load</button>
+        <button id="deleteViewBtn" type="button">Delete</button>
+      </div>
+
+      <p class="hint">Tip: Click 2 points in Measure mode. In Annotate mode, click anywhere to drop a note.</p>
     </div>
 
     <div id="cesiumContainer"></div>

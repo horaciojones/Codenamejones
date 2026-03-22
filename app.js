@@ -1,5 +1,6 @@
 const ORBITAL_DESTINATION = Cesium.Cartesian3.fromDegrees(-30.0, 25.0, 25_000_000);
 const EASTERN_TIMEZONE = 'America/New_York';
+const SAVED_VIEWS_KEY = 'earth-digital-twin-saved-views-v1';
 
 const viewer = new Cesium.Viewer('cesiumContainer', {
   animation: false,
@@ -30,7 +31,6 @@ scene.skyAtmosphere.show = true;
 scene.fog.enabled = true;
 scene.screenSpaceCameraController.minimumZoomDistance = 20;
 scene.screenSpaceCameraController.maximumZoomDistance = 40_000_000;
-
 viewer.clock.multiplier = 0;
 
 const labelsLayer = imageryLayers.addImageryProvider(
@@ -64,8 +64,29 @@ const nightLayer = imageryLayers.addImageryProvider(
 );
 nightLayer.alpha = 0;
 
+let buildingsTileset;
+let buildingsVisible = true;
+
+(async () => {
+  try {
+    buildingsTileset = await Cesium.createOsmBuildingsAsync();
+    scene.primitives.add(buildingsTileset);
+    scene.requestRender();
+  } catch {
+    buildingsVisible = false;
+    const buildingsToggle = document.getElementById('buildingsToggle');
+    if (buildingsToggle) {
+      buildingsToggle.disabled = true;
+      buildingsToggle.checked = false;
+    }
+  }
+})();
+
 const sunLight = scene.light;
 const nightToggle = document.getElementById('nightToggle');
+const labelsToggle = document.getElementById('labelsToggle');
+const cloudsToggle = document.getElementById('cloudsToggle');
+const buildingsToggle = document.getElementById('buildingsToggle');
 const dateTime = document.getElementById('dateTime');
 const nowBtn = document.getElementById('nowBtn');
 const orbitalViewBtn = document.getElementById('orbitalViewBtn');
@@ -73,6 +94,20 @@ const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 const easternClock = document.getElementById('easternClock');
 const cityButtons = document.querySelectorAll('[data-city-lon][data-city-lat]');
+const measureBtn = document.getElementById('measureBtn');
+const clearMeasureBtn = document.getElementById('clearMeasureBtn');
+const annotateBtn = document.getElementById('annotateBtn');
+const saveViewBtn = document.getElementById('saveViewBtn');
+const loadViewBtn = document.getElementById('loadViewBtn');
+const deleteViewBtn = document.getElementById('deleteViewBtn');
+const savedViews = document.getElementById('savedViews');
+
+let activeTool = null;
+let measurePoints = [];
+let measureEntities = [];
+let annotations = [];
+
+const clickHandler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
 
 function toLocalInputDateTime(date) {
   const pad = (value) => `${value}`.padStart(2, '0');
@@ -152,9 +187,195 @@ async function flyToAddress(query) {
   });
 }
 
+function getCartesianFromClick(position) {
+  const ray = viewer.camera.getPickRay(position);
+  return scene.globe.pick(ray, scene) || viewer.camera.pickEllipsoid(position, globe.ellipsoid);
+}
+
+function setTool(toolName) {
+  activeTool = activeTool === toolName ? null : toolName;
+  measureBtn.classList.toggle('active', activeTool === 'measure');
+  annotateBtn.classList.toggle('active', activeTool === 'annotate');
+}
+
+function clearMeasurements() {
+  measureEntities.forEach((entity) => viewer.entities.remove(entity));
+  measureEntities = [];
+  measurePoints = [];
+  scene.requestRender();
+}
+
+function distanceInKm(pointA, pointB) {
+  return Cesium.Cartesian3.distance(pointA, pointB) / 1000;
+}
+
+function saveCameraView() {
+  const name = prompt('Name this viewpoint:');
+  if (!name) {
+    return;
+  }
+
+  const views = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '[]');
+  views.push({
+    name,
+    destination: viewer.camera.positionCartographic,
+    heading: viewer.camera.heading,
+    pitch: viewer.camera.pitch,
+    roll: viewer.camera.roll
+  });
+
+  localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
+  refreshSavedViews();
+}
+
+function refreshSavedViews() {
+  const views = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '[]');
+  savedViews.innerHTML = '';
+
+  views.forEach((view, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = view.name;
+    savedViews.append(option);
+  });
+}
+
+function loadSelectedView() {
+  const index = Number(savedViews.value);
+  if (Number.isNaN(index)) {
+    return;
+  }
+
+  const views = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '[]');
+  const view = views[index];
+  if (!view) {
+    return;
+  }
+
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromRadians(
+      view.destination.longitude,
+      view.destination.latitude,
+      view.destination.height
+    ),
+    orientation: {
+      heading: view.heading,
+      pitch: view.pitch,
+      roll: view.roll
+    },
+    duration: 1.6
+  });
+}
+
+function deleteSelectedView() {
+  const index = Number(savedViews.value);
+  if (Number.isNaN(index)) {
+    return;
+  }
+
+  const views = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '[]');
+  views.splice(index, 1);
+  localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
+  refreshSavedViews();
+}
+
+clickHandler.setInputAction((movement) => {
+  const cartesian = getCartesianFromClick(movement.position);
+  if (!cartesian) {
+    return;
+  }
+
+  if (activeTool === 'measure') {
+    measurePoints.push(cartesian);
+    measureEntities.push(
+      viewer.entities.add({
+        position: cartesian,
+        point: {
+          pixelSize: 9,
+          color: Cesium.Color.CYAN
+        }
+      })
+    );
+
+    if (measurePoints.length === 2) {
+      const km = distanceInKm(measurePoints[0], measurePoints[1]);
+      measureEntities.push(
+        viewer.entities.add({
+          polyline: {
+            positions: [...measurePoints],
+            material: Cesium.Color.YELLOW,
+            width: 3
+          }
+        })
+      );
+      measureEntities.push(
+        viewer.entities.add({
+          position: Cesium.Cartesian3.midpoint(
+            measurePoints[0],
+            measurePoints[1],
+            new Cesium.Cartesian3()
+          ),
+          label: {
+            text: `${km.toFixed(2)} km`,
+            fillColor: Cesium.Color.WHITE,
+            showBackground: true,
+            backgroundColor: Cesium.Color.BLACK.withAlpha(0.6),
+            pixelOffset: new Cesium.Cartesian2(0, -14)
+          }
+        })
+      );
+      measurePoints = [];
+    }
+  }
+
+  if (activeTool === 'annotate') {
+    const labelText = prompt('Annotation label:');
+    if (!labelText) {
+      return;
+    }
+
+    annotations.push(
+      viewer.entities.add({
+        position: cartesian,
+        point: {
+          pixelSize: 8,
+          color: Cesium.Color.ORANGE
+        },
+        label: {
+          text: labelText,
+          fillColor: Cesium.Color.WHITE,
+          showBackground: true,
+          backgroundColor: Cesium.Color.DARKSLATEGRAY.withAlpha(0.8),
+          pixelOffset: new Cesium.Cartesian2(0, -18)
+        }
+      })
+    );
+  }
+
+  scene.requestRender();
+}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
 nightToggle.addEventListener('change', () => {
   nightLayer.alpha = nightToggle.checked ? 0.85 : 0;
   scene.requestRender();
+});
+
+labelsToggle.addEventListener('change', () => {
+  labelsLayer.show = labelsToggle.checked;
+  scene.requestRender();
+});
+
+cloudsToggle.addEventListener('change', () => {
+  cloudLayer.show = cloudsToggle.checked;
+  scene.requestRender();
+});
+
+buildingsToggle.addEventListener('change', () => {
+  buildingsVisible = buildingsToggle.checked;
+  if (buildingsTileset) {
+    buildingsTileset.show = buildingsVisible;
+    scene.requestRender();
+  }
 });
 
 dateTime.addEventListener('change', () => {
@@ -209,9 +430,17 @@ cityButtons.forEach((button) => {
   });
 });
 
+measureBtn.addEventListener('click', () => setTool('measure'));
+annotateBtn.addEventListener('click', () => setTool('annotate'));
+clearMeasureBtn.addEventListener('click', () => clearMeasurements());
+saveViewBtn.addEventListener('click', saveCameraView);
+loadViewBtn.addEventListener('click', loadSelectedView);
+deleteViewBtn.addEventListener('click', deleteSelectedView);
+
 dateTime.value = toLocalInputDateTime(new Date());
 setSimulationDate(dateTime.value);
 updateEasternClock();
+refreshSavedViews();
 setInterval(updateEasternClock, 30_000);
 viewer.camera.flyTo({ destination: ORBITAL_DESTINATION, duration: 0 });
 scene.requestRender();
