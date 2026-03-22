@@ -48,3 +48,5 @@ Open:
 - If OSM 3D buildings are unavailable, the buildings toggle auto-disables.
 
 - Cesium for Unreal + Google Photorealistic 3D Tiles pipeline is not part of this web repo; this implementation provides the CesiumJS web equivalent for event-scene prototyping.
+
+See PRODUCT_PLAN.md for a full mobility OS roadmap and phased architecture.
