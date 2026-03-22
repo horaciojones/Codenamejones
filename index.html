@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Earth Digital Twin</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/Widgets/widgets.css"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="toolbar" aria-label="Viewer controls">
+      <h1>Earth Digital Twin</h1>
+      <p class="subtitle">Search any address and zoom to roads/places in seconds</p>
+
+      <div class="control-row compact search-row">
+        <input id="searchInput" type="text" placeholder="Search address (ex: 1600 Pennsylvania Ave NW, Washington, DC)" />
+        <button id="searchBtn" type="button">Go</button>
+      </div>
+
+      <div class="control-row compact city-row">
+        <button type="button" data-city-lon="-80.1918" data-city-lat="25.7617">Miami</button>
+        <button type="button" data-city-lon="-74.006" data-city-lat="40.7128">New York</button>
+        <button type="button" data-city-lon="-118.2437" data-city-lat="34.0522">Los Angeles</button>
+      </div>
+
+      <div class="control-row">
+        <label class="toggle">
+          <input id="nightToggle" type="checkbox" />
+          <span>Night lights</span>
+        </label>
+      </div>
+      <div class="control-row">
+        <label for="dateTime">Orbital date/time (your local timezone)</label>
+        <input id="dateTime" type="datetime-local" step="60" />
+        <small id="easternClock">Eastern time: --</small>
+      </div>
+      <div class="control-row compact">
+        <button id="nowBtn" type="button">Now</button>
+        <button id="orbitalViewBtn" type="button">Orbital view</button>
+      </div>
+      <p class="hint">Scroll to zoom in/out. Right-click + drag to tilt. Double-click to center.</p>
+    </div>
+
+    <div id="cesiumContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/Cesium.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

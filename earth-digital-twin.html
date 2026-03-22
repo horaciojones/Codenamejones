@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Earth Digital Twin (Standalone HTML)</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/Widgets/widgets.css"
+    />
+    <style>
+      :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #02040b; }
+      #toolbar { position: absolute; z-index: 10; top: 1rem; left: 1rem; width: min(29rem, calc(100% - 2rem)); display: flex; flex-direction: column; gap: .75rem; border-radius: .75rem; padding: 1rem; backdrop-filter: blur(10px); background: rgb(3 8 20 / 78%); border: 1px solid rgb(255 255 255 / 12%); box-shadow: 0 8px 24px rgb(0 0 0 / 35%); }
+      #toolbar h1 { margin: 0; font-size: 1.1rem; }
+      .subtitle, .hint, small { margin: 0; color: rgb(214 226 255 / 85%); font-size: .85rem; line-height: 1.35; }
+      .control-row { display: flex; flex-direction: column; gap: .4rem; }
+      .control-row.compact { flex-direction: row; flex-wrap: wrap; }
+      .search-row input { flex: 1; min-width: 16rem; }
+      .city-row button { min-width: 7rem; }
+      .toggle { display: inline-flex; gap: .5rem; align-items: center; }
+      button, input[type='datetime-local'], input[type='text'] { color: #e6edff; background: rgb(147 170 255 / 14%); border: 1px solid rgb(170 189 255 / 28%); border-radius: .5rem; padding: .45rem .65rem; }
+      button:hover { cursor: pointer; background: rgb(147 170 255 / 24%); }
+    </style>
+  </head>
+  <body>
+    <div id="toolbar" aria-label="Viewer controls">
+      <h1>Earth Digital Twin</h1>
+      <p class="subtitle">Standalone HTML with address search + city quick zoom.</p>
+
+      <div class="control-row compact search-row">
+        <input id="searchInput" type="text" placeholder="Search address (ex: Miami Beach, FL)" />
+        <button id="searchBtn" type="button">Go</button>
+      </div>
+
+      <div class="control-row compact city-row">
+        <button type="button" data-city-lon="-80.1918" data-city-lat="25.7617">Miami</button>
+        <button type="button" data-city-lon="-74.006" data-city-lat="40.7128">New York</button>
+        <button type="button" data-city-lon="-118.2437" data-city-lat="34.0522">Los Angeles</button>
+      </div>
+
+      <div class="control-row">
+        <label class="toggle"><input id="nightToggle" type="checkbox" /><span>Night lights</span></label>
+      </div>
+      <div class="control-row">
+        <label for="dateTime">Orbital date/time (your local timezone)</label>
+        <input id="dateTime" type="datetime-local" step="60" />
+        <small id="easternClock">Eastern time: --</small>
+      </div>
+      <div class="control-row compact">
+        <button id="nowBtn" type="button">Now</button>
+        <button id="orbitalViewBtn" type="button">Orbital view</button>
+      </div>
+      <p class="hint">Mouse wheel zooms to city roads/places, right-click drag tilts the camera.</p>
+    </div>
+
+    <div id="cesiumContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/Cesium.js"></script>
+    <script>
+      const ORBITAL_DESTINATION = Cesium.Cartesian3.fromDegrees(-30.0, 25.0, 25_000_000);
+      const EASTERN_TIMEZONE = 'America/New_York';
+      const viewer = new Cesium.Viewer('cesiumContainer', {
+        animation: false, baseLayerPicker: false, geocoder: false, homeButton: false, timeline: false,
+        sceneModePicker: false, fullscreenButton: false, infoBox: false, selectionIndicator: false,
+        navigationHelpButton: false, requestRenderMode: true, maximumRenderTimeChange: Infinity,
+        imageryProvider: new Cesium.ArcGisMapServerImageryProvider({ url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer', enablePickFeatures: false }),
+        terrainProvider: new Cesium.EllipsoidTerrainProvider()
+      });
+      const scene = viewer.scene;
+      const globe = scene.globe;
+      const imageryLayers = globe.imageryLayers;
+      globe.enableLighting = true;
+      scene.skyAtmosphere.show = true;
+      scene.fog.enabled = true;
+      scene.screenSpaceCameraController.minimumZoomDistance = 20;
+      scene.screenSpaceCameraController.maximumZoomDistance = 40_000_000;
+      viewer.clock.multiplier = 0;
+
+      const labelsLayer = imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider({ url: 'https://tile.openstreetmap.org/' }));
+      labelsLayer.alpha = 0.45;
+      const cloudLayer = imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({ url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_Cloud_Mask/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png', tileMatrixSetID: 'GoogleMapsCompatible_Level9', tileMatrixLabels: ['1','2','3','4','5','6','7','8','9'], maximumLevel: 8, credit: 'NASA GIBS' }));
+      cloudLayer.alpha = 0.26;
+      const nightLayer = imageryLayers.addImageryProvider(new Cesium.WebMapTileServiceImageryProvider({ url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi', layer: 'VIIRS_Black_Marble', style: 'default', tileMatrixSetID: 'GoogleMapsCompatible_Level8', format: 'image/jpeg', maximumLevel: 8, credit: 'NASA Black Marble' }));
+      nightLayer.alpha = 0;
+
+      const sunLight = scene.light;
+      const nightToggle = document.getElementById('nightToggle');
+      const dateTime = document.getElementById('dateTime');
+      const nowBtn = document.getElementById('nowBtn');
+      const orbitalViewBtn = document.getElementById('orbitalViewBtn');
+      const searchInput = document.getElementById('searchInput');
+      const searchBtn = document.getElementById('searchBtn');
+      const easternClock = document.getElementById('easternClock');
+      const cityButtons = document.querySelectorAll('[data-city-lon][data-city-lat]');
+
+      function toLocalInputDateTime(date) {
+        const pad = (value) => `${value}`.padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      }
+      function updateEasternClock() {
+        easternClock.textContent = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: EASTERN_TIMEZONE, timeZoneName: 'short' }).format(new Date());
+      }
+      function setSimulationDate(rawDate) {
+        const parsed = new Date(rawDate); if (Number.isNaN(parsed.getTime())) return;
+        viewer.clock.currentTime = Cesium.JulianDate.fromDate(parsed);
+        if (nightToggle.checked) {
+          const sunIntensity = Cesium.Math.clamp(Cesium.Cartesian3.dot(Cesium.Cartesian3.normalize(sunLight.direction, new Cesium.Cartesian3()), Cesium.Cartesian3.normalize(viewer.camera.positionWC, new Cesium.Cartesian3())), -1, 1);
+          nightLayer.alpha = Cesium.Math.lerp(0.4, 0.95, (1 - sunIntensity) / 2);
+        }
+        scene.requestRender();
+      }
+      async function flyToAddress(query) {
+        const endpoint = new URL('https://nominatim.openstreetmap.org/search');
+        endpoint.searchParams.set('q', query.trim()); endpoint.searchParams.set('format', 'jsonv2'); endpoint.searchParams.set('limit', '1');
+        const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error(`Search failed (${response.status})`);
+        const [result] = await response.json(); if (!result) throw new Error('No results found for this search.');
+        viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(Number(result.lon), Number(result.lat), 4200), duration: 2 });
+      }
+
+      nightToggle.addEventListener('change', () => { nightLayer.alpha = nightToggle.checked ? 0.85 : 0; scene.requestRender(); });
+      dateTime.addEventListener('change', () => setSimulationDate(dateTime.value));
+      nowBtn.addEventListener('click', () => { dateTime.value = toLocalInputDateTime(new Date()); setSimulationDate(dateTime.value); updateEasternClock(); });
+      orbitalViewBtn.addEventListener('click', () => viewer.camera.flyTo({ destination: ORBITAL_DESTINATION, duration: 1.6 }));
+      searchBtn.addEventListener('click', async () => { searchBtn.disabled = true; searchBtn.textContent = 'Searching…'; try { await flyToAddress(searchInput.value); } catch (error) { alert(error.message); } finally { searchBtn.disabled = false; searchBtn.textContent = 'Go'; } });
+      searchInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); searchBtn.click(); } });
+      cityButtons.forEach((button) => button.addEventListener('click', () => viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(Number(button.dataset.cityLon), Number(button.dataset.cityLat), 7000), duration: 2 })));
+
+      dateTime.value = toLocalInputDateTime(new Date());
+      setSimulationDate(dateTime.value);
+      updateEasternClock();
+      setInterval(updateEasternClock, 30_000);
+      viewer.camera.flyTo({ destination: ORBITAL_DESTINATION, duration: 0 });
+      scene.requestRender();
+    </script>
+  </body>
+</html>
