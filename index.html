@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Earth Digital Twin</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/Widgets/widgets.css"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="toolbar" aria-label="Viewer controls">
+      <h1>Earth Digital Twin</h1>
+      <p class="subtitle">search → fly in → inspect 3D → layers → measure/annotate → save/tour</p>
+
+      <div class="control-row compact search-row">
+        <input id="searchInput" type="text" placeholder="City / address / '25.7617,-80.1918'" />
+        <button id="searchBtn" type="button">Go</button>
+      </div>
+
+      <div class="control-row compact city-row">
+        <button type="button" data-city-lon="-80.1918" data-city-lat="25.7617">Miami</button>
+        <button type="button" data-city-lon="-74.006" data-city-lat="40.7128">NYC</button>
+        <button type="button" data-city-lon="139.6917" data-city-lat="35.6895">Tokyo</button>
+      </div>
+
+      <div class="control-row compact toggles-row">
+        <label class="toggle"><input id="nightToggle" type="checkbox" /> <span>Night lights</span></label>
+        <label class="toggle"><input id="labelsToggle" type="checkbox" checked /> <span>Road labels</span></label>
+        <label class="toggle"><input id="cloudsToggle" type="checkbox" checked /> <span>Clouds</span></label>
+        <label class="toggle"><input id="fogToggle" type="checkbox" checked /> <span>Fog</span></label>
+        <label class="toggle"><input id="atmosphereToggle" type="checkbox" checked /> <span>Atmosphere</span></label>
+        <label class="toggle"><input id="buildingsToggle" type="checkbox" checked /> <span>3D buildings</span></label>
+        <label class="toggle"><input id="quakesToggle" type="checkbox" /> <span>Earthquakes</span></label>
+      </div>
+
+      <div class="control-row compact">
+        <label for="sunSlider">Sun hour</label>
+        <input id="sunSlider" type="range" min="0" max="23" step="1" value="12" />
+        <label for="terrainExaggeration">Terrain x</label>
+        <input id="terrainExaggeration" type="range" min="1" max="5" step="0.1" value="1" />
+      </div>
+
+      <div class="control-row">
+        <label for="dateTime">Orbital date/time (your local timezone)</label>
+        <input id="dateTime" type="datetime-local" step="60" />
+        <small id="easternClock">Eastern time: --</small>
+      </div>
+
+      <div class="control-row compact">
+        <button id="nowBtn" type="button">Now</button>
+        <button id="orbitalViewBtn" type="button">Orbital view</button>
+        <button id="resetNorthBtn" type="button">Compass reset</button>
+        <button id="autoRotateBtn" type="button">Auto rotate</button>
+      </div>
+
+      <div class="control-row compact">
+        <button id="measureBtn" type="button">Measure distance</button>
+        <button id="measureAreaBtn" type="button">Measure area</button>
+        <button id="clearMeasureBtn" type="button">Clear measure</button>
+        <button id="annotateBtn" type="button">Annotate / pin</button>
+      </div>
+
+      <div class="control-row compact view-row">
+        <button id="saveViewBtn" type="button">Save viewpoint</button>
+        <select id="savedViews"></select>
+        <button id="loadViewBtn" type="button">Load</button>
+        <button id="deleteViewBtn" type="button">Delete</button>
+        <button id="tourBtn" type="button">Tour mode</button>
+      </div>
+
+      <div class="control-row compact">
+        <label for="importFile">Import GeoJSON/KML/GPX</label>
+        <input id="importFile" type="file" accept=".geojson,.json,.kml,.gpx" />
+      </div>
+
+      <p class="hint">Click the globe for an info card (lat/lon/elevation). Measure area with 3+ clicks then double-click.</p>
+    </div>
+
+    <div id="infoCard" aria-live="polite">
+      <strong>Location</strong>
+      <div id="infoText">Click on the globe to inspect coordinates and elevation.</div>
+    </div>
+
+    <div id="cesiumContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/Cesium.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
