@@ -3,17 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Earth Digital Twin</title>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/Widgets/widgets.css"
-    />
+    <title>Earth Digital Twin - Map Laboratory</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.119/Build/Cesium/Widgets/widgets.css" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div id="toolbar" aria-label="Viewer controls">
-      <h1>Earth Digital Twin</h1>
-      <p class="subtitle">search → fly in → inspect 3D → layers → measure/annotate → save/tour</p>
+      <h1>Map Laboratory</h1>
+      <p class="subtitle">One renderer, many personal workflows.</p>
 
       <div class="control-row compact search-row">
         <input id="searchInput" type="text" placeholder="City / address / '25.7617,-80.1918'" />
@@ -24,6 +21,8 @@
         <button type="button" data-city-lon="-80.1918" data-city-lat="25.7617">Miami</button>
         <button type="button" data-city-lon="-74.006" data-city-lat="40.7128">NYC</button>
         <button type="button" data-city-lon="139.6917" data-city-lat="35.6895">Tokyo</button>
+        <button id="goHomeBtn" type="button">Home</button>
+        <button id="goWorkBtn" type="button">Work</button>
       </div>
 
       <div class="control-row compact toggles-row">
@@ -43,12 +42,6 @@
         <input id="terrainExaggeration" type="range" min="1" max="5" step="0.1" value="1" />
       </div>
 
-      <div class="control-row">
-        <label for="dateTime">Orbital date/time (your local timezone)</label>
-        <input id="dateTime" type="datetime-local" step="60" />
-        <small id="easternClock">Eastern time: --</small>
-      </div>
-
       <div class="control-row compact">
         <button id="nowBtn" type="button">Now</button>
         <button id="orbitalViewBtn" type="button">Orbital view</button>
@@ -60,7 +53,7 @@
         <button id="measureBtn" type="button">Measure distance</button>
         <button id="measureAreaBtn" type="button">Measure area</button>
         <button id="clearMeasureBtn" type="button">Clear measure</button>
-        <button id="annotateBtn" type="button">Annotate / pin</button>
+        <button id="annotateBtn" type="button">Drop pin</button>
       </div>
 
       <div class="control-row compact view-row">
@@ -75,9 +68,42 @@
         <label for="importFile">Import GeoJSON/KML/GPX</label>
         <input id="importFile" type="file" accept=".geojson,.json,.kml,.gpx" />
       </div>
-
-      <p class="hint">Click the globe for an info card (lat/lon/elevation). Measure area with 3+ clicks then double-click.</p>
+      <small id="easternClock">Eastern time: --</small>
     </div>
+
+    <button id="panelToggle" class="panel-toggle" type="button">☰ Lab Panel</button>
+    <aside id="labPanel" class="open">
+      <h2>Map Lab</h2>
+      <section>
+        <h3>Route Lab (experimental)</h3>
+        <div class="route-row">
+          <input id="routeFrom" type="text" placeholder="From" />
+          <input id="routeTo" type="text" placeholder="To" />
+          <button id="routeCompareBtn" type="button">Compare 3 routes</button>
+        </div>
+        <ul id="routeResults"></ul>
+      </section>
+
+      <section>
+        <h3>Personal overlays</h3>
+        <div class="overlay-row">
+          <label><input type="checkbox" class="overlayToggle" data-overlay="work" checked /> Work</label>
+          <label><input type="checkbox" class="overlayToggle" data-overlay="food" checked /> Food</label>
+          <label><input type="checkbox" class="overlayToggle" data-overlay="gym" checked /> Gym</label>
+          <label><input type="checkbox" class="overlayToggle" data-overlay="danger" checked /> Danger</label>
+        </div>
+      </section>
+
+      <section>
+        <h3>Recent searches</h3>
+        <ul id="recentPlaces"></ul>
+      </section>
+
+      <section>
+        <h3>Shortcuts</h3>
+        <p>F: focus search · R: toggle auto-rotate · M: measure distance · A: annotate</p>
+      </section>
+    </aside>
 
     <div id="infoCard" aria-live="polite">
       <strong>Location</strong>

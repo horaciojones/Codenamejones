@@ -15,24 +15,23 @@ body,
 
 #toolbar {
   position: absolute;
-  z-index: 10;
+  z-index: 20;
   top: 1rem;
   left: 1rem;
-  width: min(42rem, calc(100% - 2rem));
+  width: min(44rem, calc(100% - 2rem));
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.65rem;
   border-radius: 0.75rem;
   padding: 1rem;
   backdrop-filter: blur(10px);
   background: rgb(3 8 20 / 78%);
   border: 1px solid rgb(255 255 255 / 12%);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
 }
 
 #infoCard {
   position: absolute;
-  z-index: 10;
+  z-index: 20;
   right: 1rem;
   top: 1rem;
   width: min(22rem, calc(100% - 2rem));
@@ -42,31 +41,71 @@ body,
   border: 1px solid rgb(255 255 255 / 12%);
 }
 
-#toolbar h1 {
-  margin: 0;
-  font-size: 1.08rem;
+.panel-toggle {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 22;
 }
 
+#labPanel {
+  position: absolute;
+  right: 1rem;
+  bottom: 3.8rem;
+  z-index: 21;
+  width: min(23rem, calc(100% - 2rem));
+  max-height: 60vh;
+  overflow: auto;
+  padding: 0.85rem;
+  border-radius: 0.75rem;
+  background: rgb(3 8 20 / 86%);
+  border: 1px solid rgb(255 255 255 / 12%);
+  display: none;
+}
+
+#labPanel.open {
+  display: block;
+}
+
+#labPanel h2,
+#labPanel h3,
+#toolbar h1 {
+  margin: 0 0 0.4rem;
+}
+
+#labPanel p,
 .subtitle,
 .hint,
 small,
 #infoText {
   margin: 0;
-  color: rgb(214 226 255 / 85%);
+  color: rgb(214 226 255 / 86%);
   font-size: 0.82rem;
-  line-height: 1.35;
 }
 
 .control-row {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
-.control-row.compact {
-  flex-direction: row;
+.control-row.compact,
+.route-row,
+.overlay-row {
+  display: flex;
   flex-wrap: wrap;
+  gap: 0.45rem;
   align-items: center;
+}
+
+button,
+input,
+select {
+  color: #e6edff;
+  background: rgb(147 170 255 / 14%);
+  border: 1px solid rgb(170 189 255 / 28%);
+  border-radius: 0.45rem;
+  padding: 0.36rem 0.5rem;
 }
 
 .search-row input {
@@ -74,47 +113,16 @@ small,
   min-width: 16rem;
 }
 
-.city-row button {
-  min-width: 7rem;
-}
-
-.toggles-row {
-  gap: 0.65rem;
-}
-
-.toggle {
-  display: inline-flex;
-  gap: 0.45rem;
-  align-items: center;
-}
-
-button,
-input[type='datetime-local'],
-input[type='text'],
-input[type='range'],
-input[type='file'],
-select {
-  color: #e6edff;
-  background: rgb(147 170 255 / 14%);
-  border: 1px solid rgb(170 189 255 / 28%);
-  border-radius: 0.5rem;
-  padding: 0.4rem 0.55rem;
-}
-
-input[type='range'] {
-  padding: 0;
-}
-
-button:hover {
-  cursor: pointer;
-  background: rgb(147 170 255 / 24%);
-}
-
 button.active {
   background: rgb(95 222 175 / 26%);
   border-color: rgb(95 222 175 / 55%);
 }
 
-.view-row select {
-  min-width: 10rem;
+ul {
+  margin: 0.3rem 0;
+  padding-left: 1.1rem;
+}
+
+li {
+  margin-bottom: 0.3rem;
 }
