@@ -1,0 +1,75 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+html,
+body,
+#cesiumContainer {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #02040b;
+}
+
+#toolbar {
+  position: absolute;
+  z-index: 10;
+  top: 1rem;
+  left: 1rem;
+  width: min(21rem, calc(100% - 2rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  backdrop-filter: blur(10px);
+  background: rgb(3 8 20 / 74%);
+  border: 1px solid rgb(255 255 255 / 12%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+}
+
+#toolbar h1 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.subtitle,
+.hint {
+  margin: 0;
+  color: rgb(214 226 255 / 80%);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.control-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.control-row.compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.toggle {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+button,
+input[type='datetime-local'] {
+  color: #e6edff;
+  background: rgb(147 170 255 / 14%);
+  border: 1px solid rgb(170 189 255 / 28%);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.65rem;
+}
+
+button:hover {
+  cursor: pointer;
+  background: rgb(147 170 255 / 24%);
+}
